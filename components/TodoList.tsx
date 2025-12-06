@@ -18,6 +18,7 @@ export default function TodoList({ userId }: TodoListProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(false)
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
@@ -89,6 +90,15 @@ export default function TodoList({ userId }: TodoListProps) {
       filtered = filtered.filter((todo) => !todo.is_completed)
     }
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        (t.description && t.description.toLowerCase().includes(query))
+      )
+    }
+
     return filtered
   }
 
@@ -147,6 +157,42 @@ export default function TodoList({ userId }: TodoListProps) {
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-sm text-gray-600">未完了</p>
           <p className="text-2xl font-bold text-blue-600">{totalCount - completedCount}</p>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Todoを検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <svg
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
