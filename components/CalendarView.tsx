@@ -96,12 +96,20 @@ export default function CalendarView({ userId }: CalendarViewProps) {
   }
 
   const getFilteredEvents = () => {
-    if (filteredColorIds.size === 0) {
-      return events.filter(e => e.is_visible)
+    let filtered = events
+
+    // For month view, filter by is_visible
+    // For day view, show all events regardless of is_visible
+    if (viewMode === 'month') {
+      filtered = filtered.filter(e => e.is_visible)
     }
-    return events.filter(
-      e => e.is_visible && e.color_id && filteredColorIds.has(e.color_id)
-    )
+
+    // Apply color filter if any colors are selected
+    if (filteredColorIds.size > 0) {
+      filtered = filtered.filter(e => e.color_id && filteredColorIds.has(e.color_id))
+    }
+
+    return filtered
   }
 
   const handleEventClick = (event: CalendarEvent) => {
