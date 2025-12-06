@@ -75,13 +75,17 @@ export default function CalendarView({ userId }: CalendarViewProps) {
   }
 
   const loadColors = async () => {
+    console.log('[Calendar] Loading colors for user:', userId)
     const { data, error } = await supabase
       .from('colors')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('[Calendar] Error loading colors:', error)
+    } else {
+      console.log('[Calendar] Loaded colors:', data?.length, 'colors')
       setColors(data)
     }
   }
