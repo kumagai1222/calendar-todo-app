@@ -1,11 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import CalendarView from './CalendarView'
 import TodoList from './TodoList'
+import NotificationSettings from './NotificationSettings'
+import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
+import { Database } from '@/lib/types/database.types'
+
+type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
+type Todo = Database['public']['Tables']['todos']['Row']
 
 interface DashboardClientProps {
   user: User
@@ -15,10 +21,52 @@ const ADMIN_EMAIL = 'hajimeazb@gmail.com'
 
 export default function DashboardClient({ user }: DashboardClientProps) {
   const [view, setView] = useState<'calendar' | 'todo'>('calendar')
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false)
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const isAdmin = user.email === ADMIN_EMAIL
 
+  useEffect(() => {
+    // Load notification setting
+    const saved = localStorage.getItem('notificationsEnabled')
+    setNotificationsEnabled(saved === 'true')
+
+    // Load all events and todos for notifications
+    loadEventsAndTodos()
+  }, [])
+
+  const loadEventsAndTodos = async () => {
+    const now = new Date()
+    const futureDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+
+    const [eventsResult, todosResult] = await Promise.all([
+      supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('start_date', now.toISOString())
+        .lte('start_date', futureDate.toISOString()),
+      supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', user.id)
+        .not('deadline', 'is', null)
+        .eq('is_completed', false)
+    ])
+
+    if (eventsResult.data) setEvents(eventsResult.data)
+    if (todosResult.data) setTodos(todosResult.data)
+  }
+
+  // Use notification hook
+  useEventNotifications({
+    events,
+    todos,
+    enabled: notificationsEnabled
+  })
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -58,6 +106,16 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                   </button>
                 </>
               )}
+              <button
+                onClick={() => setIsNotificationSettingsOpen(true)}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="通知設定"
+                title="通知設定"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
               <span className="hidden sm:inline text-sm text-gray-600 truncate max-w-[150px]">{user.email}</span>
               <button
                 onClick={handleLogout}
@@ -104,6 +162,18 @@ export default function DashboardClient({ user }: DashboardClientProps) {
           <TodoList userId={user.id} />
         )}
       </main>
+
+      {/* Notification Settings Modal */}
+      {isNotificationSettingsOpen && (
+        <NotificationSettings
+          onClose={() => {
+            setIsNotificationSettingsOpen(false)
+            // Reload notification setting
+            const saved = localStorage.getItem('notificationsEnabled')
+            setNotificationsEnabled(saved === 'true')
+          }}
+        />
+      )}
     </div>
   )
 }
