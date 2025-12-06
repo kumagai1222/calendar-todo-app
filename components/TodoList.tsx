@@ -98,6 +98,48 @@ export default function TodoList({ userId }: TodoListProps) {
     await loadTodos()
   }
 
+  const handleArchiveCompleted = async () => {
+    if (!confirm('完了済みのTodoをアーカイブしますか？アーカイブしたTodoはアーカイブから復元できます。')) {
+      return
+    }
+
+    const completedTodos = todos.filter((todo) => todo.is_completed)
+
+    if (completedTodos.length === 0) {
+      alert('アーカイブする完了済みTodoがありません')
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Move completed todos to archive
+      for (const todo of completedTodos) {
+        // Insert into archived_todos
+        await supabase.from('archived_todos').insert({
+          user_id: user.id,
+          title: todo.title,
+          description: todo.description,
+          priority: todo.priority,
+          deadline: todo.deadline,
+          category_id: todo.category_id,
+          completed_at: todo.updated_at,
+          original_todo_id: todo.id,
+        })
+
+        // Delete from todos
+        await supabase.from('todos').delete().eq('id', todo.id)
+      }
+
+      await loadTodos()
+      alert(`${completedTodos.length}件のTodoをアーカイブしました`)
+    } catch (error) {
+      console.error('Archive error:', error)
+      alert('アーカイブ中にエラーが発生しました')
+    }
+  }
+
   const handleImport = async (data: {
     events?: Partial<CalendarEvent>[]
     todos?: Partial<Todo>[]
@@ -312,7 +354,7 @@ export default function TodoList({ userId }: TodoListProps) {
             </label>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setIsExportImportModalOpen(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
@@ -322,6 +364,16 @@ export default function TodoList({ userId }: TodoListProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="hidden sm:inline">データ</span>
+            </button>
+            <button
+              onClick={handleArchiveCompleted}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+              title="完了済みTodoをアーカイブ"
+            >
+              <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              <span className="hidden sm:inline">アーカイブ</span>
             </button>
             <button
               onClick={() => setIsCategoryManagerOpen(true)}
