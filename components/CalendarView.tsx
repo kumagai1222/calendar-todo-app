@@ -123,7 +123,14 @@ export default function CalendarView({ userId }: CalendarViewProps) {
   }
 
   const handleDateClick = (date: Date) => {
-    setSelectedDate(date)
+    // Switch to day view and set the clicked date
+    setCurrentDate(date)
+    setViewMode('day')
+  }
+
+  const handleAddEvent = () => {
+    // Open event modal for adding new event
+    setSelectedDate(currentDate)
     setSelectedEvent(null)
     setIsEventModalOpen(true)
   }
@@ -227,7 +234,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
             </button>
 
             <button
-              onClick={() => handleDateClick(new Date())}
+              onClick={handleAddEvent}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
             >
               予定追加
