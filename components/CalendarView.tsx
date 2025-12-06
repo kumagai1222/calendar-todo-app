@@ -78,6 +78,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
     const { data, error } = await supabase
       .from('colors')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
     if (!error && data) {

@@ -22,6 +22,7 @@ export default function DailyCalendar({
   onEventClick,
 }: DailyCalendarProps) {
   const hours = Array.from({ length: 24 }, (_, i) => i)
+  const HOUR_HEIGHT = 60 // px per hour
 
   const getDayEvents = () => {
     return events.filter((event) => {
@@ -46,16 +47,31 @@ export default function DailyCalendar({
     })
   }
 
-  const getEventsForHour = (hour: number) => {
-    return dayEvents.filter((event) => {
-      const eventHour = new Date(event.start_date).getHours()
-      return eventHour === hour
-    })
-  }
-
   const getColorById = (colorId: string | null) => {
     if (!colorId) return null
     return colors.find((c) => c.id === colorId)
+  }
+
+  // Calculate position and height for an event
+  const getEventStyle = (event: CalendarEvent) => {
+    const startTime = new Date(event.start_date)
+    const endTime = new Date(event.end_date)
+
+    // Calculate hours and minutes as decimal
+    const startHour = startTime.getHours() + startTime.getMinutes() / 60
+    const endHour = endTime.getHours() + endTime.getMinutes() / 60
+
+    // Position from top (in pixels)
+    const top = startHour * HOUR_HEIGHT
+
+    // Duration in hours
+    const duration = endHour - startHour
+    const height = duration * HOUR_HEIGHT
+
+    return {
+      top: `${top}px`,
+      height: `${height}px`,
+    }
   }
 
   const dayEvents = getDayEvents()
@@ -115,90 +131,77 @@ export default function DailyCalendar({
         </div>
       )}
 
+      {/* Time grid calendar */}
       <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
-        {hours.map((hour) => {
-          const hourEvents = getEventsForHour(hour)
+        <div className="flex">
+          {/* Time column */}
+          <div className="flex-shrink-0 w-20 border-r border-gray-200">
+            {hours.map((hour) => (
+              <div
+                key={hour}
+                className="border-b border-gray-200 p-2 text-sm text-gray-600 font-medium"
+                style={{ height: `${HOUR_HEIGHT}px` }}
+              >
+                {hour.toString().padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
 
-          return (
-            <div
-              key={hour}
-              className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex">
-                {/* Time column */}
-                <div className="w-20 p-3 text-sm text-gray-600 font-medium border-r border-gray-200">
-                  {hour.toString().padStart(2, '0')}:00
-                </div>
+          {/* Events column with absolute positioning */}
+          <div className="flex-1 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+            {/* Hour grid lines */}
+            {hours.map((hour) => (
+              <div
+                key={`grid-${hour}`}
+                className="absolute w-full border-b border-gray-200"
+                style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
+              />
+            ))}
 
-                {/* Events column */}
-                <div className="flex-1 p-2 min-h-[60px]">
-                  {hourEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      {hourEvents.map((event) => {
-                        const color = getColorById(event.color_id)
-                        const startTime = new Date(event.start_date)
-                        const endTime = new Date(event.end_date)
+            {/* Event cards with absolute positioning */}
+            {dayEvents.map((event) => {
+              const color = getColorById(event.color_id)
+              const startTime = new Date(event.start_date)
+              const endTime = new Date(event.end_date)
+              const style = getEventStyle(event)
 
-                        return (
-                          <div
-                            key={event.id}
-                            onClick={() => onEventClick(event)}
-                            className="p-3 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                            style={{
-                              backgroundColor: color?.hex_code + '20' || '#e5e7eb',
-                              borderLeft: `4px solid ${color?.hex_code || '#9ca3af'}`,
-                            }}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900">
-                                  {event.title}
-                                </h4>
-                                {event.description && (
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    {event.description}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-600 ml-4">
-                                {startTime.toLocaleTimeString('ja-JP', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}{' '}
-                                -{' '}
-                                {endTime.toLocaleTimeString('ja-JP', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </div>
-                            </div>
-                            {color && (
-                              <div className="mt-2">
-                                <span
-                                  className="text-xs px-2 py-1 rounded"
-                                  style={{
-                                    backgroundColor: color.hex_code + '30',
-                                    color: color.hex_code,
-                                  }}
-                                >
-                                  {color.name}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )
+              return (
+                <div
+                  key={event.id}
+                  onClick={() => onEventClick(event)}
+                  className="absolute left-1 right-1 p-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
+                  style={{
+                    ...style,
+                    backgroundColor: color?.hex_code + '20' || '#e5e7eb',
+                    borderLeft: `4px solid ${color?.hex_code || '#9ca3af'}`,
+                    zIndex: 10,
+                  }}
+                >
+                  <div className="text-xs font-semibold text-gray-900 truncate">
+                    {startTime.toLocaleTimeString('ja-JP', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}{' '}
+                    {event.title}
+                  </div>
+                  {parseFloat(style.height) > 40 && event.description && (
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                      {event.description}
+                    </p>
+                  )}
+                  {parseFloat(style.height) > 30 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {endTime.toLocaleTimeString('ja-JP', {
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                      {/* Empty slot */}
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
