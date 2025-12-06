@@ -89,7 +89,7 @@ export default function MonthlyCalendar({
         {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
           <div
             key={day}
-            className={`p-3 text-center text-sm font-semibold ${
+            className={`p-1.5 sm:p-3 text-center text-xs sm:text-sm font-semibold ${
               index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
             }`}
           >
@@ -102,7 +102,7 @@ export default function MonthlyCalendar({
       <div className="grid grid-cols-7 auto-rows-fr">
         {calendarDays.map((date, index) => {
           if (!date) {
-            return <div key={`empty-${index}`} className="border border-gray-200 bg-gray-50" />
+            return <div key={`empty-${index}`} className="border border-gray-200 bg-gray-50 min-h-[60px] sm:min-h-[120px]" />
           }
 
           const dayEvents = getEventsForDate(date)
@@ -114,13 +114,13 @@ export default function MonthlyCalendar({
           return (
             <div
               key={date.toISOString()}
-              className={`border border-gray-200 p-2 min-h-[120px] cursor-pointer hover:bg-gray-50 transition-colors ${
+              className={`border border-gray-200 p-1 sm:p-2 min-h-[60px] sm:min-h-[120px] cursor-pointer hover:bg-gray-50 transition-colors ${
                 today ? 'bg-blue-50' : ''
               }`}
               onClick={() => onDateClick(date)}
             >
               <div
-                className={`text-sm font-medium mb-2 ${
+                className={`text-xs sm:text-sm font-medium mb-1 sm:mb-2 ${
                   today
                     ? 'text-blue-600 font-bold'
                     : dayOfWeek === 0
@@ -134,9 +134,9 @@ export default function MonthlyCalendar({
               </div>
 
               {/* Events and Todos for this day */}
-              <div className="space-y-1">
+              <div className="space-y-0.5 sm:space-y-1">
                 {/* Events */}
-                {dayEvents.slice(0, 2).map((event) => {
+                {dayEvents.slice(0, 2).map((event, eventIndex) => {
                   const color = getColorById(event.color_id)
                   return (
                     <div
@@ -145,44 +145,50 @@ export default function MonthlyCalendar({
                         e.stopPropagation()
                         onEventClick(event)
                       }}
-                      className="text-xs p-1 rounded truncate cursor-pointer hover:opacity-80"
+                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate cursor-pointer hover:opacity-80 ${
+                        eventIndex > 0 ? 'hidden sm:block' : ''
+                      }`}
                       style={{
                         backgroundColor: color?.hex_code + '30' || '#e5e7eb',
-                        borderLeft: `3px solid ${color?.hex_code || '#9ca3af'}`,
+                        borderLeft: `2px solid ${color?.hex_code || '#9ca3af'}`,
                       }}
                       title={event.title}
                     >
-                      {new Date(event.start_date).toLocaleTimeString('ja-JP', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}{' '}
+                      <span className="hidden sm:inline">
+                        {new Date(event.start_date).toLocaleTimeString('ja-JP', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}{' '}
+                      </span>
                       {event.title}
                     </div>
                   )
                 })}
 
                 {/* Todos */}
-                {dayTodos.slice(0, Math.max(0, 3 - dayEvents.length)).map((todo) => {
+                {dayTodos.slice(0, 2).map((todo, todoIndex) => {
                   return (
                     <div
                       key={`todo-${todo.id}`}
-                      className="text-xs p-1 rounded truncate bg-orange-50 border-l-3 border-orange-500"
+                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate bg-orange-50 ${
+                        todoIndex > 0 ? 'hidden sm:block' : ''
+                      }`}
                       style={{
-                        borderLeft: '3px solid #f97316',
+                        borderLeft: '2px solid #f97316',
                       }}
                       title={`Todo: ${todo.title}`}
                     >
-                      <span className="font-semibold">✓</span> {todo.title}
+                      <span className="font-semibold text-[10px]">✓</span> {todo.title}
                       {!todo.is_completed && (
-                        <span className="ml-1 text-orange-600">⚠</span>
+                        <span className="ml-0.5 sm:ml-1 text-orange-600 text-[10px]">⚠</span>
                       )}
                     </div>
                   )
                 })}
 
-                {totalItems > 3 && (
-                  <div className="text-xs text-gray-500 pl-1">
-                    +{totalItems - 3} more
+                {totalItems > 2 && (
+                  <div className="text-[10px] sm:text-xs text-gray-500 pl-0.5 sm:pl-1">
+                    +{totalItems - 2}
                   </div>
                 )}
               </div>
