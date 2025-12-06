@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TodoModal from './TodoModal'
 import CategoryManager from './CategoryManager'
+import ExportImportModal from './ExportImportModal'
 import { Database } from '@/lib/types/database.types'
 
 type Todo = Database['public']['Tables']['todos']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
+type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 
 interface TodoListProps {
   userId: string
@@ -23,6 +25,7 @@ export default function TodoList({ userId }: TodoListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(false)
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
+  const [isExportImportModalOpen, setIsExportImportModalOpen] = useState(false)
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const supabase = createClient()
 
@@ -93,6 +96,63 @@ export default function TodoList({ userId }: TodoListProps) {
   const handleCategoriesUpdate = async () => {
     await loadCategories()
     await loadTodos()
+  }
+
+  const handleImport = async (data: {
+    events?: Partial<CalendarEvent>[]
+    todos?: Partial<Todo>[]
+    colors?: Color[]
+    categories?: Category[]
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      // Import colors
+      if (data.colors && data.colors.length > 0) {
+        const colorsToInsert = data.colors.map((color) => ({
+          name: color.name,
+          hex_code: color.hex_code,
+          user_id: user.id,
+        }))
+
+        await supabase.from('colors').insert(colorsToInsert)
+      }
+
+      // Import categories
+      if (data.categories && data.categories.length > 0) {
+        const categoriesToInsert = data.categories.map((category) => ({
+          name: category.name,
+          color_id: category.color_id,
+          user_id: user.id,
+        }))
+
+        await supabase.from('categories').insert(categoriesToInsert)
+      }
+
+      // Import todos
+      if (data.todos && data.todos.length > 0) {
+        const todosToInsert = data.todos.map((todo) => ({
+          title: todo.title!,
+          description: todo.description,
+          priority: todo.priority ?? 'medium',
+          deadline: todo.deadline,
+          is_completed: todo.is_completed ?? false,
+          category_id: todo.category_id,
+          user_id: user.id,
+        }))
+
+        await supabase.from('todos').insert(todosToInsert)
+      }
+
+      // Reload all data
+      await loadTodos()
+      await loadColors()
+      await loadCategories()
+    } catch (error) {
+      console.error('Import error:', error)
+      throw error
+    }
   }
 
   const getFilteredTodos = () => {
@@ -254,6 +314,16 @@ export default function TodoList({ userId }: TodoListProps) {
 
           <div className="flex gap-2">
             <button
+              onClick={() => setIsExportImportModalOpen(true)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+              title="エクスポート/インポート"
+            >
+              <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">データ</span>
+            </button>
+            <button
               onClick={() => setIsCategoryManagerOpen(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
             >
@@ -391,6 +461,18 @@ export default function TodoList({ userId }: TodoListProps) {
           categories={categories}
           onClose={() => setIsCategoryManagerOpen(false)}
           onUpdate={handleCategoriesUpdate}
+        />
+      )}
+
+      {/* Export/Import Modal */}
+      {isExportImportModalOpen && (
+        <ExportImportModal
+          events={[]}
+          todos={todos}
+          colors={colors}
+          categories={categories}
+          onClose={() => setIsExportImportModalOpen(false)}
+          onImport={handleImport}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ import MonthlyCalendar from './MonthlyCalendar'
 import DailyCalendar from './DailyCalendar'
 import EventModal from './EventModal'
 import ColorManager from './ColorManager'
+import ExportImportModal from './ExportImportModal'
 import { Database } from '@/lib/types/database.types'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
@@ -28,6 +29,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [isColorManagerOpen, setIsColorManagerOpen] = useState(false)
+  const [isExportImportModalOpen, setIsExportImportModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const supabase = createClient()
@@ -189,6 +191,83 @@ export default function CalendarView({ userId }: CalendarViewProps) {
     await loadTodos()
   }
 
+  const handleImport = async (data: {
+    events?: Partial<CalendarEvent>[]
+    todos?: Partial<Todo>[]
+    colors?: Color[]
+    categories?: Category[]
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      // Import colors
+      if (data.colors && data.colors.length > 0) {
+        const colorsToInsert = data.colors.map((color) => ({
+          name: color.name,
+          hex_code: color.hex_code,
+          user_id: user.id,
+        }))
+
+        await supabase.from('colors').insert(colorsToInsert)
+      }
+
+      // Import categories
+      if (data.categories && data.categories.length > 0) {
+        const categoriesToInsert = data.categories.map((category) => ({
+          name: category.name,
+          color_id: category.color_id,
+          user_id: user.id,
+        }))
+
+        await supabase.from('categories').insert(categoriesToInsert)
+      }
+
+      // Import events
+      if (data.events && data.events.length > 0) {
+        const eventsToInsert = data.events.map((event) => ({
+          title: event.title!,
+          description: event.description,
+          start_date: event.start_date!,
+          end_date: event.end_date!,
+          color_id: event.color_id,
+          is_visible: event.is_visible ?? true,
+          is_recurring: event.is_recurring ?? false,
+          recurrence_type: event.recurrence_type,
+          recurrence_interval: event.recurrence_interval,
+          recurrence_end_date: event.recurrence_end_date,
+          user_id: user.id,
+        }))
+
+        await supabase.from('calendar_events').insert(eventsToInsert)
+      }
+
+      // Import todos
+      if (data.todos && data.todos.length > 0) {
+        const todosToInsert = data.todos.map((todo) => ({
+          title: todo.title!,
+          description: todo.description,
+          priority: todo.priority ?? 'medium',
+          deadline: todo.deadline,
+          is_completed: todo.is_completed ?? false,
+          category_id: todo.category_id,
+          user_id: user.id,
+        }))
+
+        await supabase.from('todos').insert(todosToInsert)
+      }
+
+      // Reload all data
+      await loadEvents()
+      await loadTodos()
+      await loadColors()
+      await loadCategories()
+    } catch (error) {
+      console.error('Import error:', error)
+      throw error
+    }
+  }
+
   const goToPreviousPeriod = () => {
     if (viewMode === 'month') {
       setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
@@ -304,6 +383,17 @@ export default function CalendarView({ userId }: CalendarViewProps) {
             </div>
 
             <button
+              onClick={() => setIsExportImportModalOpen(true)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+              title="エクスポート/インポート"
+            >
+              <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="hidden sm:inline">データ</span>
+            </button>
+
+            <button
               onClick={() => setIsColorManagerOpen(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
             >
@@ -392,6 +482,18 @@ export default function CalendarView({ userId }: CalendarViewProps) {
           colors={colors}
           onClose={() => setIsColorManagerOpen(false)}
           onUpdate={handleColorsUpdate}
+        />
+      )}
+
+      {/* Export/Import Modal */}
+      {isExportImportModalOpen && (
+        <ExportImportModal
+          events={events}
+          todos={todos}
+          colors={colors}
+          categories={categories}
+          onClose={() => setIsExportImportModalOpen(false)}
+          onImport={handleImport}
         />
       )}
     </div>
