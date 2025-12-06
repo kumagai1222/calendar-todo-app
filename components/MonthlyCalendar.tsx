@@ -5,12 +5,14 @@ import { Database } from '@/lib/types/database.types'
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
 type Todo = Database['public']['Tables']['todos']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 
 interface MonthlyCalendarProps {
   currentDate: Date
   events: CalendarEvent[]
   todos: Todo[]
   colors: Color[]
+  categories: Category[]
   onEventClick: (event: CalendarEvent) => void
   onDateClick: (date: Date) => void
 }
@@ -20,6 +22,7 @@ export default function MonthlyCalendar({
   events,
   todos,
   colors,
+  categories,
   onEventClick,
   onDateClick,
 }: MonthlyCalendarProps) {
@@ -71,6 +74,13 @@ export default function MonthlyCalendar({
   const getColorById = (colorId: string | null) => {
     if (!colorId) return null
     return colors.find((c) => c.id === colorId)
+  }
+
+  const getCategoryColor = (categoryId: string | null) => {
+    if (!categoryId) return null
+    const category = categories.find((c) => c.id === categoryId)
+    if (!category || !category.color_id) return null
+    return getColorById(category.color_id)
   }
 
   const isToday = (date: Date) => {
@@ -167,14 +177,16 @@ export default function MonthlyCalendar({
 
                 {/* Todos */}
                 {dayTodos.slice(0, 2).map((todo, todoIndex) => {
+                  const categoryColor = getCategoryColor(todo.category_id)
                   return (
                     <div
                       key={`todo-${todo.id}`}
-                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate bg-orange-50 ${
+                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate ${
                         todoIndex > 0 ? 'hidden sm:block' : ''
                       }`}
                       style={{
-                        borderLeft: '2px solid #f97316',
+                        backgroundColor: categoryColor?.hex_code ? categoryColor.hex_code + '20' : '#fef3c7',
+                        borderLeft: `2px solid ${categoryColor?.hex_code || '#f97316'}`,
                       }}
                       title={`Todo: ${todo.title}`}
                     >

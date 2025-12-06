@@ -11,6 +11,7 @@ import { Database } from '@/lib/types/database.types'
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
 type Todo = Database['public']['Tables']['todos']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 
 interface CalendarViewProps {
   userId: string
@@ -22,6 +23,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [colors, setColors] = useState<Color[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [filteredColorIds, setFilteredColorIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
@@ -34,6 +36,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
     loadEvents()
     loadTodos()
     loadColors()
+    loadCategories()
   }, [currentDate, viewMode, userId])
 
   const loadEvents = async () => {
@@ -88,6 +91,18 @@ export default function CalendarView({ userId }: CalendarViewProps) {
     } else {
       console.log('[Calendar] Loaded colors:', data?.length, 'colors')
       setColors(data)
+    }
+  }
+
+  const loadCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+
+    if (!error && data) {
+      setCategories(data)
     }
   }
 
@@ -341,6 +356,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
           events={filteredEvents}
           todos={filteredTodos}
           colors={colors}
+          categories={categories}
           onEventClick={handleEventClick}
           onDateClick={handleDateClick}
         />
@@ -350,6 +366,7 @@ export default function CalendarView({ userId }: CalendarViewProps) {
           events={filteredEvents}
           todos={filteredTodos}
           colors={colors}
+          categories={categories}
           onEventClick={handleEventClick}
         />
       )}

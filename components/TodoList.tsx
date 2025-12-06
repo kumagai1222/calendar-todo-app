@@ -8,6 +8,7 @@ import { Database } from '@/lib/types/database.types'
 
 type Todo = Database['public']['Tables']['todos']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
+type Color = Database['public']['Tables']['colors']['Row']
 
 interface TodoListProps {
   userId: string
@@ -16,6 +17,7 @@ interface TodoListProps {
 export default function TodoList({ userId }: TodoListProps) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [colors, setColors] = useState<Color[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -27,6 +29,7 @@ export default function TodoList({ userId }: TodoListProps) {
   useEffect(() => {
     loadTodos()
     loadCategories()
+    loadColors()
   }, [userId])
 
   const loadTodos = async () => {
@@ -44,11 +47,24 @@ export default function TodoList({ userId }: TodoListProps) {
   const loadCategories = async () => {
     const { data, error } = await supabase
       .from('categories')
-      .select('*, colors(*)')
+      .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
     if (!error && data) {
-      setCategories(data as any)
+      setCategories(data)
+    }
+  }
+
+  const loadColors = async () => {
+    const { data, error } = await supabase
+      .from('colors')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+
+    if (!error && data) {
+      setColors(data)
     }
   }
 
@@ -105,6 +121,18 @@ export default function TodoList({ userId }: TodoListProps) {
   const getCategoryById = (categoryId: string | null) => {
     if (!categoryId) return null
     return categories.find((c) => c.id === categoryId)
+  }
+
+  const getColorById = (colorId: string | null) => {
+    if (!colorId) return null
+    return colors.find((c) => c.id === colorId)
+  }
+
+  const getCategoryColor = (categoryId: string | null) => {
+    if (!categoryId) return null
+    const category = categories.find((c) => c.id === categoryId)
+    if (!category || !category.color_id) return null
+    return getColorById(category.color_id)
   }
 
   const isOverdue = (deadline: string | null) => {
@@ -254,6 +282,7 @@ export default function TodoList({ userId }: TodoListProps) {
           <div className="divide-y divide-gray-200">
             {filteredTodos.map((todo) => {
               const category = getCategoryById(todo.category_id)
+              const categoryColor = getCategoryColor(todo.category_id)
               const overdue = isOverdue(todo.deadline)
 
               return (
@@ -303,10 +332,10 @@ export default function TodoList({ userId }: TodoListProps) {
                           <span
                             className="px-2 py-1 text-xs rounded"
                             style={{
-                              backgroundColor: (category as any).colors?.hex_code
-                                ? (category as any).colors.hex_code + '20'
+                              backgroundColor: categoryColor?.hex_code
+                                ? categoryColor.hex_code + '20'
                                 : '#e5e7eb',
-                              color: (category as any).colors?.hex_code || '#6b7280',
+                              color: categoryColor?.hex_code || '#6b7280',
                             }}
                           >
                             {category.name}

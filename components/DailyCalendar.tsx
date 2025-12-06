@@ -5,12 +5,14 @@ import { Database } from '@/lib/types/database.types'
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
 type Todo = Database['public']['Tables']['todos']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 
 interface DailyCalendarProps {
   currentDate: Date
   events: CalendarEvent[]
   todos: Todo[]
   colors: Color[]
+  categories: Category[]
   onEventClick: (event: CalendarEvent) => void
 }
 
@@ -19,6 +21,7 @@ export default function DailyCalendar({
   events,
   todos,
   colors,
+  categories,
   onEventClick,
 }: DailyCalendarProps) {
   const hours = Array.from({ length: 24 }, (_, i) => i)
@@ -50,6 +53,13 @@ export default function DailyCalendar({
   const getColorById = (colorId: string | null) => {
     if (!colorId) return null
     return colors.find((c) => c.id === colorId)
+  }
+
+  const getCategoryColor = (categoryId: string | null) => {
+    if (!categoryId) return null
+    const category = categories.find((c) => c.id === categoryId)
+    if (!category || !category.color_id) return null
+    return getColorById(category.color_id)
   }
 
   // Calculate position and height for an event
@@ -95,38 +105,50 @@ export default function DailyCalendar({
 
       {/* Todos for the day */}
       {dayTodos.length > 0 && (
-        <div className="p-4 bg-orange-50 border-b border-orange-200">
-          <h4 className="text-sm font-semibold text-orange-900 mb-2">本日締切のTodo</h4>
+        <div className="p-4 bg-gray-50 border-b border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">本日締切のTodo</h4>
           <div className="space-y-2">
-            {dayTodos.map((todo) => (
-              <div
-                key={todo.id}
-                className="p-2 bg-white rounded border-l-4 border-orange-500"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <span className={`font-medium ${todo.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                      {todo.title}
-                    </span>
-                    {!todo.is_completed && (
-                      <span className="ml-2 text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                        未完了
+            {dayTodos.map((todo) => {
+              const categoryColor = getCategoryColor(todo.category_id)
+              return (
+                <div
+                  key={todo.id}
+                  className="p-2 bg-white rounded border-l-4"
+                  style={{
+                    borderLeftColor: categoryColor?.hex_code || '#f97316',
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <span className={`font-medium ${todo.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                        {todo.title}
                       </span>
-                    )}
+                      {!todo.is_completed && (
+                        <span
+                          className="ml-2 text-xs px-2 py-1 rounded"
+                          style={{
+                            backgroundColor: categoryColor?.hex_code ? categoryColor.hex_code + '20' : '#fed7aa',
+                            color: categoryColor?.hex_code || '#c2410c',
+                          }}
+                        >
+                          未完了
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      todo.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
+                    </span>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    todo.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
-                  </span>
+                  {todo.description && (
+                    <p className="text-sm text-gray-600 mt-1">{todo.description}</p>
+                  )}
                 </div>
-                {todo.description && (
-                  <p className="text-sm text-gray-600 mt-1">{todo.description}</p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
