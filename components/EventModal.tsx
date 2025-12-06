@@ -30,6 +30,10 @@ export default function EventModal({
   const [endTime, setEndTime] = useState('')
   const [colorId, setColorId] = useState<string>('')
   const [isVisible, setIsVisible] = useState(true)
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurrenceType, setRecurrenceType] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly')
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1)
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
@@ -46,6 +50,12 @@ export default function EventModal({
       setEndTime(end.toTimeString().slice(0, 5))
       setColorId(event.color_id || '')
       setIsVisible(event.is_visible)
+      setIsRecurring((event as any).is_recurring || false)
+      setRecurrenceType((event as any).recurrence_type || 'weekly')
+      setRecurrenceInterval((event as any).recurrence_interval || 1)
+      if ((event as any).recurrence_end_date) {
+        setRecurrenceEndDate(new Date((event as any).recurrence_end_date).toISOString().split('T')[0])
+      }
     } else if (initialDate) {
       const dateStr = initialDate.toISOString().split('T')[0]
       setStartDate(dateStr)
@@ -69,13 +79,17 @@ export default function EventModal({
       return
     }
 
-    const eventData = {
+    const eventData: any = {
       title,
       description: description || null,
       start_date: startDateTime.toISOString(),
       end_date: endDateTime.toISOString(),
       color_id: colorId || null,
       is_visible: isVisible,
+      is_recurring: isRecurring,
+      recurrence_type: isRecurring ? recurrenceType : null,
+      recurrence_interval: isRecurring ? recurrenceInterval : null,
+      recurrence_end_date: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : null,
     }
 
     if (event) {
@@ -265,6 +279,79 @@ export default function EventModal({
               <label htmlFor="isVisible" className="ml-2 text-sm text-gray-700">
                 カレンダーに表示する
               </label>
+            </div>
+
+            {/* Recurring Event Settings */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isRecurring" className="ml-2 text-sm font-medium text-gray-700">
+                  繰り返し予定
+                </label>
+              </div>
+
+              {isRecurring && (
+                <div className="space-y-4 ml-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        繰り返しタイプ
+                      </label>
+                      <select
+                        value={recurrenceType}
+                        onChange={(e) => setRecurrenceType(e.target.value as any)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="daily">毎日</option>
+                        <option value="weekly">毎週</option>
+                        <option value="monthly">毎月</option>
+                        <option value="yearly">毎年</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        間隔
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={recurrenceInterval}
+                        onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      繰り返し終了日（オプション）
+                    </label>
+                    <input
+                      type="date"
+                      value={recurrenceEndDate}
+                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    {recurrenceInterval > 1 ? `${recurrenceInterval}` : ''}
+                    {recurrenceType === 'daily' && (recurrenceInterval > 1 ? '日ごと' : '毎日')}
+                    {recurrenceType === 'weekly' && (recurrenceInterval > 1 ? '週間ごと' : '毎週')}
+                    {recurrenceType === 'monthly' && (recurrenceInterval > 1 ? 'ヶ月ごと' : '毎月')}
+                    {recurrenceType === 'yearly' && (recurrenceInterval > 1 ? '年ごと' : '毎年')}
+                    に繰り返します
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between pt-4">
