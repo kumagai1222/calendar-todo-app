@@ -137,7 +137,11 @@
 
   <div class="section">
     <div class="label">カレンダーアプリのURL:</div>
-    <input type="text" id="appUrl" placeholder="https://your-app.vercel.app または http://localhost:8081">
+    <input type="text" id="appUrl" placeholder="http://localhost:8081">
+    <div style="font-size: 11px; color: #666; margin-top: 4px;">
+      ℹ️ ローカル開発: http://localhost:8081<br>
+      ℹ️ 本番環境: https://calendar-todo-app-six.vercel.app
+    </div>
   </div>
 
   <button id="syncButton">
@@ -149,7 +153,7 @@
   <div id="assignmentsList" class="assignments-list" style="display: none;"></div>
 
   <div class="note">
-    ⚠️ KLMSのダッシュボードページ (https://lms.keio.jp/?login_success=1) で実行してください。
+    ⚠️ KLMSのページ (https://lms.keio.jp) で実行してください。
   </div>
 
   <script src="popup.js"></script>

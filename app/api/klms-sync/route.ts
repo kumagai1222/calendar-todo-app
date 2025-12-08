@@ -1,7 +1,38 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+// CORS設定を動的に生成
+function getCorsHeaders(origin: string | null) {
+  // Chrome拡張機能のオリジンを許可（chrome-extension://で始まる）
+  const allowedOrigins = [
+    'http://localhost:8081',
+    'https://calendar-todo-app-six.vercel.app',
+  ]
+
+  // Chrome拡張機能からのリクエストも許可
+  const isAllowed = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.startsWith('chrome-extension://')
+  )
+
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  }
+}
+
+// OPTIONSリクエスト（プリフライト）への対応
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin')
+  return NextResponse.json({}, { headers: getCorsHeaders(origin) })
+}
+
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   try {
     const supabase = await createClient()
 
@@ -11,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       )
     }
 
@@ -21,7 +52,7 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(assignments)) {
       return NextResponse.json(
         { error: 'Invalid request format' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -64,26 +95,35 @@ export async function POST(request: NextRequest) {
     // Process each assignment
     for (const assignment of assignments) {
       try {
-        const { title, deadline, courseCode, courseName } = assignment
+        const { title, assignmentName, deadline, courseCode, courseName } = assignment
 
-        // Check if todo with same title and deadline already exists
-        const { data: existingTodo } = await supabase
+        // 課題名（assignmentName）を使用、なければtitleを使用
+        const displayName = assignmentName || title
+
+        // より厳密な重複チェック：課題名とdeadlineで判定
+        // まず、descriptionに「KLMSから自動取得」を含むtodoを検索
+        const { data: existingTodos } = await supabase
           .from('todos')
-          .select('id')
+          .select('id, title, description')
           .eq('user_id', user.id)
-          .eq('title', title)
           .eq('deadline', deadline)
-          .single()
+          .ilike('description', '%KLMSから自動取得%')
 
-        if (existingTodo) {
+        // 課題名が含まれているか確認
+        const isDuplicate = existingTodos?.some(todo =>
+          todo.title.includes(displayName) || todo.description?.includes(displayName)
+        )
+
+        if (isDuplicate) {
           results.skipped++
+          console.log(`[KLMS Sync] Skipping duplicate: ${displayName}`)
           continue
         }
 
         // Create description
         const description = [
-          courseCode ? `科目: ${courseCode}` : '',
-          courseName ? courseName : '',
+          courseCode ? `科目コード: ${courseCode}` : '',
+          courseName ? `科目名: ${courseName}` : '',
           'KLMSから自動取得',
         ].filter(Boolean).join('\n')
 
@@ -99,21 +139,25 @@ export async function POST(request: NextRequest) {
         })
 
         results.added++
+        console.log(`[KLMS Sync] Added: ${title}`)
       } catch (error) {
         console.error('Error processing assignment:', error)
         results.errors.push(`Failed to process: ${assignment.title}`)
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      results,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        results,
+      },
+      { headers: corsHeaders }
+    )
   } catch (error) {
     console.error('KLMS sync error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }

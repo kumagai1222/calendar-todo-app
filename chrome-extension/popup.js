@@ -23,17 +23,25 @@ appUrlInput.addEventListener('change', () => {
 
 // 同期ボタンのクリックイベント
 syncButton.addEventListener('click', async () => {
-  const appUrl = appUrlInput.value.trim()
+  let appUrl = appUrlInput.value.trim()
 
   if (!appUrl) {
     showStatus('error', 'カレンダーアプリのURLを入力してください')
     return
   }
 
+  // URLから/dashboard などのパスを削除（ベースURLのみにする）
+  try {
+    const url = new URL(appUrl)
+    appUrl = `${url.protocol}//${url.host}`
+  } catch (e) {
+    // URLが無効な場合はそのまま使用
+  }
+
   // 現在のタブがKLMSページかチェック
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
-  if (!tab.url.includes('lms.keio.jp')) {
+  if (!tab.url || !tab.url.includes('lms.keio.jp')) {
     showStatus('error', 'KLMSのページで実行してください')
     return
   }
@@ -43,12 +51,35 @@ syncButton.addEventListener('click', async () => {
     showStatus('info', 'KLMSから課題を抽出中...')
 
     // Content scriptに課題抽出を依頼
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: 'extractAssignments'
-    })
+    let response
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'extractAssignments'
+      })
+    } catch (error) {
+      // Content scriptが読み込まれていない場合、手動で注入
+      if (error.message.includes('Could not establish connection')) {
+        showStatus('info', 'スクリプトを読み込んでいます...')
 
-    if (!response.success) {
-      throw new Error(response.error || '課題の抽出に失敗しました')
+        // Content scriptを注入
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        })
+
+        // 少し待ってから再試行
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        response = await chrome.tabs.sendMessage(tab.id, {
+          action: 'extractAssignments'
+        })
+      } else {
+        throw error
+      }
+    }
+
+    if (!response || !response.success) {
+      throw new Error(response?.error || '課題の抽出に失敗しました')
     }
 
     const assignments = response.assignments
@@ -74,11 +105,21 @@ syncButton.addEventListener('click', async () => {
     })
 
     if (!syncResponse.ok) {
-      const errorData = await syncResponse.json()
+      let errorData
+      try {
+        errorData = await syncResponse.json()
+      } catch (e) {
+        throw new Error(`サーバーエラー (${syncResponse.status}): ${syncResponse.statusText}`)
+      }
       throw new Error(errorData.error || 'カレンダーアプリへの送信に失敗しました')
     }
 
-    const result = await syncResponse.json()
+    let result
+    try {
+      result = await syncResponse.json()
+    } catch (e) {
+      throw new Error('サーバーからの応答が無効です: ' + e.message)
+    }
 
     if (result.success) {
       const message = [

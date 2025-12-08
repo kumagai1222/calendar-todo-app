@@ -2,72 +2,74 @@
 
 function extractAssignments() {
   const assignments = []
+  const currentYear = new Date().getFullYear()
 
-  // ダッシュボードの全ての日付セクションを取得
-  const dayElements = document.querySelectorAll('[class*="day"]')
+  // 課題リンクを探す（modやassignmentを含むURL）
+  const assignmentLinks = document.querySelectorAll('a[href*="/mod/assign/"]')
 
-  // より汎用的なアプローチ: 日付とその下の課題を探す
-  const contentElements = document.querySelectorAll('a[href*="course"], a[href*="assignment"]')
+  console.log('[KLMS Sync] Found assignment links:', assignmentLinks.length)
 
-  contentElements.forEach(element => {
+  assignmentLinks.forEach(link => {
     try {
-      // 課題のタイトルを取得
-      const titleElement = element.querySelector('[class*="title"]') || element
-      const title = titleElement.textContent.trim()
+      // リンクのテキストから課題名を取得（例：「第08回課題」）
+      let title = link.textContent.trim()
 
-      if (!title) return
+      // リンクの前後のテキストから科目情報を取得
+      const container = link.closest('div, li, tr, td')
+      if (!container) return
 
-      // 親要素から日付と期限を探す
-      let parent = element.parentElement
-      let dateFound = false
-      let deadline = null
+      const fullText = container.textContent
 
-      // 上位の要素を遡って日付情報を探す
-      for (let i = 0; i < 5 && parent; i++) {
-        const parentText = parent.textContent
+      // 科目情報を抽出（例：「5-23 秋[火3]飯盛 義徳　まちづくり論」）
+      let courseInfo = ''
+      const lines = fullText.split('\n').map(l => l.trim()).filter(l => l)
 
-        // 日付のパターンを探す (例: "12月7日", "火曜日, 12月9日")
-        const dateMatch = parentText.match(/(\d+)月(\d+)日/)
-        if (dateMatch && !dateFound) {
-          const month = parseInt(dateMatch[1])
-          const day = parseInt(dateMatch[2])
-          const year = new Date().getFullYear()
-
-          // 期限時刻を探す (例: "期限：23:00", "期限: 23:59")
-          const timeMatch = parentText.match(/期限[：:]\s*(\d+):(\d+)/)
-
-          if (timeMatch) {
-            const hour = parseInt(timeMatch[1])
-            const minute = parseInt(timeMatch[2])
-
-            deadline = new Date(year, month - 1, day, hour, minute).toISOString()
-            dateFound = true
-          }
+      // 課題名の前の行を科目情報として取得
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(title) && i > 0) {
+          courseInfo = lines[i - 1]
+          break
         }
-
-        parent = parent.parentElement
       }
+
+      // 期限を探す（複数パターンに対応）
+      // 統合パターン: 年は省略可能、期限の位置も柔軟に
+      const deadlineMatch = fullText.match(/(?:期限[：:\s]*)?(?:(\d{4})年)?(\d{1,2})月\s*(\d{1,2})日[^\d]*?(?:期限[：:\s]*)?(\d{1,2}):(\d{2})/)
+
+      if (!deadlineMatch) return
+
+      // マッチ結果: [full, year?, month, day, hour, minute]
+      const year = deadlineMatch[1] ? parseInt(deadlineMatch[1]) : currentYear
+      const month = parseInt(deadlineMatch[2])
+      const day = parseInt(deadlineMatch[3])
+      const hour = parseInt(deadlineMatch[4])
+      const minute = parseInt(deadlineMatch[5])
+
+      const deadline = new Date(year, month - 1, day, hour, minute).toISOString()
 
       // 科目コードと科目名を抽出
       let courseCode = ''
       let courseName = ''
 
-      // 科目情報を含む要素を探す (例: "5-23 秋(火3)概念 言語 まちづくり講]|湘南藤沢(K-S11] 課題")
-      const courseInfoMatch = title.match(/^([\d-]+)\s+(.+?)\s+課題/)
-      if (courseInfoMatch) {
-        courseCode = courseInfoMatch[1]
-        courseName = courseInfoMatch[2]
+      if (courseInfo) {
+        const courseMatch = courseInfo.match(/^([\d-]+)\s+(.+)/)
+        if (courseMatch) {
+          courseCode = courseMatch[1]
+          courseName = courseMatch[2].replace(/\[.*?\]/g, '').trim()
+        }
       }
 
-      if (deadline) {
-        assignments.push({
-          title,
-          deadline,
-          courseCode,
-          courseName,
-          url: element.href || window.location.href,
-        })
-      }
+      // 完全な課題タイトルを作成
+      const fullTitle = courseInfo ? `${courseInfo} - ${title}` : title
+
+      assignments.push({
+        title: fullTitle,
+        assignmentName: title, // 課題名のみ（例：「第08回課題」）
+        deadline,
+        courseCode,
+        courseName,
+        url: link.href || window.location.href,
+      })
     } catch (error) {
       console.error('Error extracting assignment:', error)
     }
@@ -76,70 +78,91 @@ function extractAssignments() {
   return assignments
 }
 
-// より詳細な抽出ロジック
+// より詳細な抽出ロジック（バックアップ用）
 function extractAssignmentsDetailed() {
   const assignments = []
   const currentYear = new Date().getFullYear()
 
-  // 日付セクションを探す
-  const dateHeaders = document.querySelectorAll('h2, h3, div[class*="date"], div[class*="day"]')
+  // 全てのリンクを取得（より広範囲に）
+  const allLinks = document.querySelectorAll('a')
 
-  dateHeaders.forEach(header => {
-    const headerText = header.textContent.trim()
+  console.log('[KLMS Sync Detailed] Total links found:', allLinks.length)
 
-    // 日付のパターンをマッチ (例: "本日, 12月7日", "明日, 12月8日", "火曜日, 12月9日")
-    const dateMatch = headerText.match(/(\d+)月(\d+)日/)
+  allLinks.forEach(link => {
+    try {
+      const href = link.href
 
-    if (dateMatch) {
-      const month = parseInt(dateMatch[1])
-      const day = parseInt(dateMatch[2])
+      // KLMSの課題リンクをより柔軟に検出
+      if (!href || !href.includes('lms.keio.jp')) return
+      if (!href.includes('/mod/') && !href.includes('assign') && !href.includes('view')) return
 
-      // この日付の後に続く課題要素を探す
-      let nextElement = header.nextElementSibling
+      const linkText = link.textContent.trim()
+      if (!linkText) return
 
-      while (nextElement && !nextElement.textContent.includes('月') && !nextElement.textContent.includes('日')) {
-        // 課題のリンクを探す
-        const links = nextElement.querySelectorAll('a')
+      console.log('[KLMS Sync] Checking link:', linkText.substring(0, 50), href.substring(0, 80))
 
-        links.forEach(link => {
-          const linkText = link.textContent.trim()
+      // 親コンテナを取得
+      const container = link.closest('div, li, tr, article, section')
+      if (!container) return
 
-          if (linkText && !linkText.includes('月') && !linkText.includes('日')) {
-            // 期限時刻を探す
-            const container = link.closest('div[class*="item"], li, tr')
-            let timeText = container ? container.textContent : nextElement.textContent
+      const containerText = container.textContent
 
-            const timeMatch = timeText.match(/期限[：:]\s*(\d+):(\d+)/)
+      // 日付と期限を抽出（複数パターンに対応）
+      // 統合パターン: 年は省略可能、期限の位置も柔軟に
+      const deadlineMatch = containerText.match(/(?:期限[：:\s]*)?(?:(\d{4})年)?(\d{1,2})月\s*(\d{1,2})日[^\d]*?(?:期限[：:\s]*)?(\d{1,2}):(\d{2})/)
 
-            if (timeMatch) {
-              const hour = parseInt(timeMatch[1])
-              const minute = parseInt(timeMatch[2])
-
-              const deadline = new Date(currentYear, month - 1, day, hour, minute).toISOString()
-
-              // 科目情報を抽出
-              let courseCode = ''
-              let courseName = ''
-              const courseMatch = linkText.match(/^([\d-]+)\s+(.+?)(?:\s+課題|$)/)
-
-              if (courseMatch) {
-                courseCode = courseMatch[1]
-                courseName = courseMatch[2]
-              }
-
-              assignments.push({
-                title: linkText,
-                deadline,
-                courseCode,
-                courseName,
-                url: link.href || window.location.href,
-              })
-            }
-          }
-        })
-
-        nextElement = nextElement.nextElementSibling
+      if (!deadlineMatch) {
+        console.log('[KLMS Sync] No deadline found in container:', containerText.substring(0, 100))
+        return
       }
+
+      console.log('[KLMS Sync] Found deadline:', deadlineMatch[0])
+
+      // マッチ結果: [full, year?, month, day, hour, minute]
+      const year = deadlineMatch[1] ? parseInt(deadlineMatch[1]) : currentYear
+      const month = parseInt(deadlineMatch[2])
+      const day = parseInt(deadlineMatch[3])
+      const hour = parseInt(deadlineMatch[4])
+      const minute = parseInt(deadlineMatch[5])
+
+      const deadline = new Date(year, month - 1, day, hour, minute).toISOString()
+
+      // コンテナ内のテキストを行に分割
+      const lines = containerText.split('\n').map(l => l.trim()).filter(l => l)
+
+      // 科目情報を探す
+      let courseInfo = ''
+      for (const line of lines) {
+        if (line.match(/^[\d-]+\s+/) && !line.includes(linkText)) {
+          courseInfo = line
+          break
+        }
+      }
+
+      // 科目コードと科目名を抽出
+      let courseCode = ''
+      let courseName = ''
+
+      if (courseInfo) {
+        const courseMatch = courseInfo.match(/^([\d-]+)\s+(.+)/)
+        if (courseMatch) {
+          courseCode = courseMatch[1]
+          courseName = courseMatch[2].replace(/\[.*?\]/g, '').trim()
+        }
+      }
+
+      const fullTitle = courseInfo ? `${courseInfo} - ${linkText}` : linkText
+
+      assignments.push({
+        title: fullTitle,
+        assignmentName: linkText,
+        deadline,
+        courseCode,
+        courseName,
+        url: href,
+      })
+    } catch (error) {
+      console.error('Error in detailed extraction:', error)
     }
   })
 
@@ -150,15 +173,31 @@ function extractAssignmentsDetailed() {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractAssignments') {
     try {
+      console.log('[KLMS Sync] Starting extraction...')
+      console.log('[KLMS Sync] Current URL:', window.location.href)
+      console.log('[KLMS Sync] Page title:', document.title)
+
       // 両方の方法で抽出を試みる
       const assignments1 = extractAssignments()
       const assignments2 = extractAssignmentsDetailed()
 
-      // 重複を除去してマージ
+      console.log('[KLMS Sync] Method 1 found:', assignments1.length)
+      console.log('[KLMS Sync] Method 2 found:', assignments2.length)
+
+      // 重複を除去してマージ（assignmentNameとdeadlineで判定）
       const allAssignments = [...assignments1, ...assignments2]
       const uniqueAssignments = Array.from(
-        new Map(allAssignments.map(item => [item.title + item.deadline, item])).values()
+        new Map(
+          allAssignments.map(item => {
+            // 課題名と期限の組み合わせをキーにする
+            const key = (item.assignmentName || item.title) + '|' + item.deadline
+            return [key, item]
+          })
+        ).values()
       )
+
+      console.log('[KLMS Sync] Total unique assignments:', uniqueAssignments.length)
+      console.log('[KLMS Sync] Extracted assignments:', uniqueAssignments)
 
       sendResponse({
         success: true,
@@ -166,6 +205,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         count: uniqueAssignments.length
       })
     } catch (error) {
+      console.error('[KLMS Sync] Extraction error:', error)
       sendResponse({
         success: false,
         error: error.message
@@ -176,6 +216,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 })
 
 // ページ読み込み完了時に自動抽出を実行（オプション）
-if (window.location.href.includes('lms.keio.jp') && window.location.href.includes('login_success')) {
-  console.log('[KLMS Sync] ダッシュボードページを検出しました')
+if (window.location.href.includes('lms.keio.jp')) {
+  console.log('[KLMS Sync] KLMSページを検出しました:', window.location.href)
 }

@@ -5,7 +5,8 @@
   "description": "KLMSの課題をカレンダーアプリに自動同期",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "https://lms.keio.jp/*",
@@ -22,7 +23,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://lms.keio.jp/*"],
+      "matches": [
+        "https://lms.keio.jp/*",
+        "https://lms.keio.jp/"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
