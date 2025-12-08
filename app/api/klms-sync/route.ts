@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
       .eq('name', 'KLMS課題')
       .single()
 
+    let categoryId: string | null = null
+
     if (!klmsCategory.data) {
       // Create KLMS category with a default color
       const { data: defaultColor } = await supabase
@@ -89,7 +91,9 @@ export async function POST(request: NextRequest) {
         .select('id')
         .single()
 
-      klmsCategory.data = newCategory
+      categoryId = newCategory?.id || null
+    } else {
+      categoryId = klmsCategory.data.id
     }
 
     // Process each assignment
@@ -134,7 +138,7 @@ export async function POST(request: NextRequest) {
           description,
           deadline,
           priority: 'medium',
-          category_id: klmsCategory.data?.id || null,
+          category_id: categoryId,
           is_completed: false,
         })
 

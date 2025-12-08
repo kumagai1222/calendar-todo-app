@@ -232,10 +232,10 @@ export default function CalendarView({ userId }: CalendarViewProps) {
           end_date: event.end_date!,
           color_id: event.color_id,
           is_visible: event.is_visible ?? true,
-          is_recurring: event.is_recurring ?? false,
-          recurrence_type: event.recurrence_type,
-          recurrence_interval: event.recurrence_interval,
-          recurrence_end_date: event.recurrence_end_date,
+          is_recurring: (event as any).is_recurring ?? false,
+          recurrence_type: (event as any).recurrence_type,
+          recurrence_interval: (event as any).recurrence_interval,
+          recurrence_end_date: (event as any).recurrence_end_date,
           user_id: user.id,
         }))
 

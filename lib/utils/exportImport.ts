@@ -44,13 +44,14 @@ export function exportToICS(events: CalendarEvent[]): string {
       lines.push(`DESCRIPTION:${escapeICSText(event.description)}`)
     }
 
-    if (event.is_recurring && event.recurrence_type && event.recurrence_interval) {
-      const freq = event.recurrence_type.toUpperCase()
-      const interval = event.recurrence_interval
+    const eventAny = event as any
+    if (eventAny.is_recurring && eventAny.recurrence_type && eventAny.recurrence_interval) {
+      const freq = eventAny.recurrence_type.toUpperCase()
+      const interval = eventAny.recurrence_interval
       let rrule = `FREQ=${freq};INTERVAL=${interval}`
 
-      if (event.recurrence_end_date) {
-        const endDate = new Date(event.recurrence_end_date)
+      if (eventAny.recurrence_end_date) {
+        const endDate = new Date(eventAny.recurrence_end_date)
         rrule += `;UNTIL=${formatICSDate(endDate)}`
       }
 
@@ -201,14 +202,14 @@ function parseRRule(rrule: string, event: Partial<CalendarEvent>): void {
 
     switch (key) {
       case 'FREQ':
-        event.is_recurring = true
-        event.recurrence_type = value.toLowerCase() as 'daily' | 'weekly' | 'monthly' | 'yearly'
+        (event as any).is_recurring = true
+        ;(event as any).recurrence_type = value.toLowerCase() as 'daily' | 'weekly' | 'monthly' | 'yearly'
         break
       case 'INTERVAL':
-        event.recurrence_interval = parseInt(value, 10)
+        (event as any).recurrence_interval = parseInt(value, 10)
         break
       case 'UNTIL':
-        event.recurrence_end_date = parseICSDate(value)
+        (event as any).recurrence_end_date = parseICSDate(value)
         break
     }
   })
