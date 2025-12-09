@@ -26,6 +26,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [resetCalendarToMonth, setResetCalendarToMonth] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const isAdmin = user.email === ADMIN_EMAIL
@@ -151,7 +152,11 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="flex gap-2 border-b border-gray-200">
           <button
-            onClick={() => setView('calendar')}
+            onClick={() => {
+              setView('calendar')
+              // Reset calendar to month view when tab is clicked
+              setResetCalendarToMonth(prev => !prev)
+            }}
             className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
               view === 'calendar'
                 ? 'border-blue-600 text-blue-600'
@@ -186,7 +191,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {view === 'calendar' ? (
-          <CalendarView userId={user.id} />
+          <CalendarView userId={user.id} resetToMonth={resetCalendarToMonth} />
         ) : view === 'todo' ? (
           <TodoList userId={user.id} />
         ) : (

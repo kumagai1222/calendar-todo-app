@@ -16,10 +16,18 @@ type Category = Database['public']['Tables']['categories']['Row']
 
 interface CalendarViewProps {
   userId: string
+  resetToMonth?: boolean
 }
 
-export default function CalendarView({ userId }: CalendarViewProps) {
+export default function CalendarView({ userId, resetToMonth }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<'month' | 'day'>('month')
+
+  // Reset to month view when resetToMonth prop changes
+  useEffect(() => {
+    if (resetToMonth) {
+      setViewMode('month')
+    }
+  }, [resetToMonth])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
