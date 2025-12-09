@@ -38,15 +38,23 @@ export default function EventModal({
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
+  // Helper function to format date in local timezone
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   useEffect(() => {
     if (event) {
       setTitle(event.title)
       setDescription(event.description || '')
       const start = new Date(event.start_date)
       const end = new Date(event.end_date)
-      setStartDate(start.toISOString().split('T')[0])
+      setStartDate(formatLocalDate(start))
       setStartTime(start.toTimeString().slice(0, 5))
-      setEndDate(end.toISOString().split('T')[0])
+      setEndDate(formatLocalDate(end))
       setEndTime(end.toTimeString().slice(0, 5))
       setColorId(event.color_id || '')
       setIsVisible(event.is_visible)
@@ -54,10 +62,12 @@ export default function EventModal({
       setRecurrenceType((event as any).recurrence_type || 'weekly')
       setRecurrenceInterval((event as any).recurrence_interval || 1)
       if ((event as any).recurrence_end_date) {
-        setRecurrenceEndDate(new Date((event as any).recurrence_end_date).toISOString().split('T')[0])
+        setRecurrenceEndDate(formatLocalDate(new Date((event as any).recurrence_end_date)))
       }
     } else if (initialDate) {
-      const dateStr = initialDate.toISOString().split('T')[0]
+      // Format date in local timezone to avoid timezone conversion issues
+      const dateStr = formatLocalDate(initialDate)
+
       setStartDate(dateStr)
       setEndDate(dateStr)
       setStartTime('09:00')
