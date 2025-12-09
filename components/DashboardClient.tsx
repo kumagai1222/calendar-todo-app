@@ -37,11 +37,23 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
     // Load all events and todos for notifications
     loadEventsAndTodos()
+
+    // Reload events and todos every minute to keep data fresh
+    const interval = setInterval(() => {
+      loadEventsAndTodos()
+    }, 60000) // 60 seconds
+
+    return () => clearInterval(interval)
   }, [])
 
   const loadEventsAndTodos = async () => {
     const now = new Date()
     const futureDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+
+    console.log('[DashboardClient] Loading events and todos...', {
+      from: now.toISOString(),
+      to: futureDate.toISOString()
+    })
 
     const [eventsResult, todosResult] = await Promise.all([
       supabase
@@ -58,8 +70,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
         .eq('is_completed', false)
     ])
 
-    if (eventsResult.data) setEvents(eventsResult.data)
-    if (todosResult.data) setTodos(todosResult.data)
+    if (eventsResult.data) {
+      setEvents(eventsResult.data)
+      console.log('[DashboardClient] Loaded events:', eventsResult.data.length, eventsResult.data)
+    }
+    if (todosResult.data) {
+      setTodos(todosResult.data)
+      console.log('[DashboardClient] Loaded todos:', todosResult.data.length, todosResult.data)
+    }
   }
 
   // Use notification hook
