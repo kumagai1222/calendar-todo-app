@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import ical from 'node-ical'
+import * as ical from 'node-ical'
 
 // CORS設定を動的に生成
 function getCorsHeaders(origin: string | null) {
