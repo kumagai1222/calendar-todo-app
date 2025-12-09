@@ -134,12 +134,13 @@ export async function POST(request: NextRequest) {
         // Skip if no valid date
         if (!end) continue
 
-        // Check for duplicates using UID
+        // Check for duplicates using UID (only if external_id column exists)
         const { data: existingTodos } = await supabase
           .from('todos')
-          .select('id')
+          .select('id, title, deadline')
           .eq('user_id', user.id)
-          .eq('external_id', `klms_${uid}`)
+          .eq('title', title)
+          .eq('deadline', end.toISOString())
 
         if (existingTodos && existingTodos.length > 0) {
           results.skipped++
@@ -160,8 +161,6 @@ export async function POST(request: NextRequest) {
           priority: isAssignment ? 'high' : 'medium',
           category_id: categoryId,
           is_completed: false,
-          external_id: `klms_${uid}`,
-          external_source: 'klms_calendar',
         })
 
         results.added++
