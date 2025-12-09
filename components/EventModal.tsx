@@ -218,7 +218,28 @@ export default function EventModal({
                   type="time"
                   required
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(e) => {
+                    const newStartTime = e.target.value
+                    setStartTime(newStartTime)
+
+                    // Auto-set end time to 1 hour later
+                    if (newStartTime) {
+                      const [hours, minutes] = newStartTime.split(':').map(Number)
+                      const endHour = (hours + 1) % 24
+                      const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+                      setEndTime(endTimeStr)
+
+                      // If end time goes to next day, update end date
+                      if (hours + 1 >= 24) {
+                        const currentStartDate = new Date(startDate)
+                        currentStartDate.setDate(currentStartDate.getDate() + 1)
+                        setEndDate(currentStartDate.toISOString().split('T')[0])
+                      } else if (startDate && endDate !== startDate && hours + 1 < 24) {
+                        // Reset end date to same as start date if it was different
+                        setEndDate(startDate)
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
