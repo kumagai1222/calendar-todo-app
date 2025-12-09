@@ -17,8 +17,21 @@ export function useEventNotifications({ events, todos, enabled }: UseEventNotifi
   const { showNotification, permission } = useNotifications()
   const sentNotifications = useRef<Set<string>>(new Set())
 
+  // Debug: Log when events/todos change
+  useEffect(() => {
+    console.log('[Notifications] Props updated:', {
+      eventsLength: events.length,
+      todosLength: todos.length,
+      events: events,
+      todos: todos,
+      enabled,
+      permission
+    })
+  }, [events, todos, enabled, permission])
+
   useEffect(() => {
     if (!enabled || permission !== 'granted') {
+      console.log('[Notifications] Skipping check - not enabled or not granted', { enabled, permission })
       return
     }
 
@@ -40,6 +53,16 @@ export function useEventNotifications({ events, todos, enabled }: UseEventNotifi
         const startTime = new Date(event.start_date).getTime()
         const timeDiff = startTime - nowTime
         const minutesUntilStart = Math.floor(timeDiff / 1000 / 60)
+
+        console.log('[Notifications] Checking event:', {
+          title: event.title,
+          start_date: event.start_date,
+          startTime: new Date(event.start_date).toLocaleString('ja-JP'),
+          minutesUntilStart,
+          willNotify15: minutesUntilStart <= 15 && minutesUntilStart > 14,
+          willNotify5: minutesUntilStart <= 5 && minutesUntilStart > 4,
+          willNotifyStart: minutesUntilStart <= 0 && minutesUntilStart > -1
+        })
 
         // Notify 15 minutes before
         const notif15Key = `event-${event.id}-15min`
