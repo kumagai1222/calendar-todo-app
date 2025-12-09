@@ -8,8 +8,9 @@ interface NotificationSettingsProps {
 }
 
 export default function NotificationSettings({ onClose }: NotificationSettingsProps) {
-  const { isSupported, permission, requestPermission } = useNotifications()
+  const { isSupported, permission, requestPermission, showNotification } = useNotifications()
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
 
   useEffect(() => {
     // Load notification setting from localStorage
@@ -29,6 +30,27 @@ export default function NotificationSettings({ onClose }: NotificationSettingsPr
       // Disable notifications
       setNotificationsEnabled(false)
       localStorage.setItem('notificationsEnabled', 'false')
+    }
+  }
+
+  const handleTestNotification = () => {
+    if (permission !== 'granted') {
+      setTestResult('❌ 通知の許可が必要です')
+      return
+    }
+
+    try {
+      showNotification('🔔 テスト通知', {
+        body: '通知機能は正常に動作しています！',
+        tag: 'test-notification',
+      })
+      setTestResult('✅ テスト通知を送信しました')
+
+      // Clear message after 3 seconds
+      setTimeout(() => setTestResult(null), 3000)
+    } catch (error) {
+      setTestResult('❌ 通知の送信に失敗しました')
+      console.error('Test notification error:', error)
     }
   }
 
@@ -110,6 +132,22 @@ export default function NotificationSettings({ onClose }: NotificationSettingsPr
                   }`}
                 />
               </button>
+            </div>
+
+            {/* Test Notification Button */}
+            <div className="border-t border-gray-200 pt-4">
+              <button
+                onClick={handleTestNotification}
+                disabled={permission !== 'granted'}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                🔔 テスト通知を送信
+              </button>
+              {testResult && (
+                <p className="mt-2 text-sm text-center text-gray-700">
+                  {testResult}
+                </p>
+              )}
             </div>
 
             {/* Notification Details */}

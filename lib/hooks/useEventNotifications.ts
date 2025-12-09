@@ -27,6 +27,14 @@ export function useEventNotifications({ events, todos, enabled }: UseEventNotifi
       const now = new Date()
       const nowTime = now.getTime()
 
+      console.log('[Notifications] Checking notifications...', {
+        eventsCount: events.length,
+        todosCount: todos.length,
+        enabled,
+        permission,
+        time: now.toLocaleString('ja-JP')
+      })
+
       // Check events starting in the next 15 minutes
       events.forEach((event) => {
         const startTime = new Date(event.start_date).getTime()
@@ -36,6 +44,7 @@ export function useEventNotifications({ events, todos, enabled }: UseEventNotifi
         // Notify 15 minutes before
         const notif15Key = `event-${event.id}-15min`
         if (minutesUntilStart <= 15 && minutesUntilStart > 14 && !sentNotifications.current.has(notif15Key)) {
+          console.log('[Notifications] Sending 15-min reminder for event:', event.title)
           showNotification('予定のリマインダー', {
             body: `${event.title} が15分後に始まります`,
             tag: notif15Key,
