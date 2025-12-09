@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import CalendarView from './CalendarView'
 import TodoList from './TodoList'
 import NotificationSettings from './NotificationSettings'
+import { KLMSSettings } from './KLMSSettings'
 import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
 import { Database } from '@/lib/types/database.types'
 
@@ -20,7 +21,7 @@ interface DashboardClientProps {
 const ADMIN_EMAIL = 'hajimeazb@gmail.com'
 
 export default function DashboardClient({ user }: DashboardClientProps) {
-  const [view, setView] = useState<'calendar' | 'todo'>('calendar')
+  const [view, setView] = useState<'calendar' | 'todo' | 'klms'>('calendar')
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
@@ -151,6 +152,16 @@ export default function DashboardClient({ user }: DashboardClientProps) {
           >
             Todoリスト
           </button>
+          <button
+            onClick={() => setView('klms')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              view === 'klms'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            KLMS連携
+          </button>
         </div>
       </div>
 
@@ -158,8 +169,10 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {view === 'calendar' ? (
           <CalendarView userId={user.id} />
-        ) : (
+        ) : view === 'todo' ? (
           <TodoList userId={user.id} />
+        ) : (
+          <KLMSSettings />
         )}
       </main>
 
