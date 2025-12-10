@@ -62,8 +62,55 @@ export default function DailyCalendar({
     return getColorById(category.color_id)
   }
 
+  // Check if two events overlap
+  const eventsOverlap = (event1: CalendarEvent, event2: CalendarEvent) => {
+    const start1 = new Date(event1.start_date).getTime()
+    const end1 = new Date(event1.end_date).getTime()
+    const start2 = new Date(event2.start_date).getTime()
+    const end2 = new Date(event2.end_date).getTime()
+
+    return start1 < end2 && start2 < end1
+  }
+
+  // Calculate column assignment for overlapping events
+  const getEventColumns = (events: CalendarEvent[]) => {
+    const columns: CalendarEvent[][] = []
+    const eventColumns = new Map<string, number>()
+
+    // Sort events by start time
+    const sortedEvents = [...events].sort((a, b) => {
+      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    })
+
+    sortedEvents.forEach((event) => {
+      // Find the first column where this event doesn't overlap with any existing event
+      let columnIndex = 0
+      let placed = false
+
+      while (!placed) {
+        if (!columns[columnIndex]) {
+          columns[columnIndex] = []
+        }
+
+        const overlaps = columns[columnIndex].some((existingEvent) =>
+          eventsOverlap(event, existingEvent)
+        )
+
+        if (!overlaps) {
+          columns[columnIndex].push(event)
+          eventColumns.set(event.id, columnIndex)
+          placed = true
+        } else {
+          columnIndex++
+        }
+      }
+    })
+
+    return { columns, eventColumns, maxColumns: columns.length }
+  }
+
   // Calculate position and height for an event
-  const getEventStyle = (event: CalendarEvent) => {
+  const getEventStyle = (event: CalendarEvent, columnIndex: number, maxColumns: number) => {
     const startTime = new Date(event.start_date)
     const endTime = new Date(event.end_date)
 
@@ -78,9 +125,15 @@ export default function DailyCalendar({
     const duration = endHour - startHour
     const height = duration * HOUR_HEIGHT
 
+    // Width and left position based on column
+    const width = `${100 / maxColumns}%`
+    const left = `${(columnIndex / maxColumns) * 100}%`
+
     return {
       top: `${top}px`,
       height: `${height}px`,
+      width,
+      left,
     }
   }
 
@@ -105,6 +158,9 @@ export default function DailyCalendar({
   const dayEvents = getDayEvents()
   const dayTodos = getDayTodos()
   const multiDayEvents = getMultiDayEvents()
+
+  // Calculate column layout for overlapping events
+  const { eventColumns, maxColumns } = getEventColumns(dayEvents)
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -249,13 +305,14 @@ export default function DailyCalendar({
               const color = getColorById(event.color_id)
               const startTime = new Date(event.start_date)
               const endTime = new Date(event.end_date)
-              const style = getEventStyle(event)
+              const columnIndex = eventColumns.get(event.id) || 0
+              const style = getEventStyle(event, columnIndex, maxColumns)
 
               return (
                 <div
                   key={event.id}
                   onClick={() => onEventClick(event)}
-                  className="absolute left-1 right-1 p-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
+                  className="absolute p-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
                   style={{
                     ...style,
                     backgroundColor: color?.hex_code + '20' || '#e5e7eb',
