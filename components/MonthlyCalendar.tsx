@@ -92,8 +92,68 @@ export default function MonthlyCalendar({
     )
   }
 
+  // Get multi-day events (events that span multiple days)
+  const getMultiDayEvents = () => {
+    return events.filter((event) => {
+      const start = new Date(event.start_date)
+      const end = new Date(event.end_date)
+
+      // Check if event spans multiple days
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+
+      return endDay > startDay
+    })
+  }
+
+  const multiDayEvents = getMultiDayEvents()
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Multi-day events section */}
+      {multiDayEvents.length > 0 && (
+        <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            複数日にわたる予定
+          </h3>
+          <div className="space-y-1.5 sm:space-y-2">
+            {multiDayEvents.map((event) => {
+              const color = getColorById(event.color_id)
+              const start = new Date(event.start_date)
+              const end = new Date(event.end_date)
+
+              return (
+                <div
+                  key={event.id}
+                  onClick={() => onEventClick(event)}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{
+                    borderLeft: `4px solid ${color?.hex_code || '#9ca3af'}`,
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                      {event.title}
+                    </div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                      {start.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                      {' 〜 '}
+                      {end.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: color?.hex_code || '#9ca3af' }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {/* Weekday headers */}
       <div className="grid grid-cols-7 bg-gray-50 border-b">
         {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
