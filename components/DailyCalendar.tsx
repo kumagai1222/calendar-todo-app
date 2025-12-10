@@ -1,6 +1,7 @@
 'use client'
 
 import { Database } from '@/lib/types/database.types'
+import { getHoliday } from '@/lib/utils/holidays'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
@@ -158,21 +159,29 @@ export default function DailyCalendar({
   const dayEvents = getDayEvents()
   const dayTodos = getDayTodos()
   const multiDayEvents = getMultiDayEvents()
+  const holiday = getHoliday(currentDate)
 
   // Calculate column layout for overlapping events
   const { eventColumns, maxColumns } = getEventColumns(dayEvents)
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">
-          {currentDate.toLocaleDateString('ja-JP', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            weekday: 'long',
-          })}
-        </h3>
+      <div className={`p-4 border-b ${holiday ? 'bg-red-50' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2">
+          <h3 className={`text-lg font-semibold ${holiday ? 'text-red-600' : 'text-gray-900'}`}>
+            {currentDate.toLocaleDateString('ja-JP', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              weekday: 'long',
+            })}
+          </h3>
+          {holiday && (
+            <span className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded">
+              {holiday.name}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-gray-600 mt-1">
           予定: {dayEvents.length}件 | Todo締切: {dayTodos.length}件
         </p>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Database } from '@/lib/types/database.types'
+import { getHoliday } from '@/lib/utils/holidays'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
@@ -180,27 +181,35 @@ export default function MonthlyCalendar({
           const today = isToday(date)
           const dayOfWeek = date.getDay()
           const totalItems = dayEvents.length + dayTodos.length
+          const holiday = getHoliday(date)
 
           return (
             <div
               key={date.toISOString()}
               className={`border border-gray-200 p-1 sm:p-2 min-h-[60px] sm:min-h-[120px] cursor-pointer hover:bg-gray-50 transition-colors ${
-                today ? 'bg-blue-50' : ''
+                today ? 'bg-blue-50' : holiday ? 'bg-red-50' : ''
               }`}
               onClick={() => onDateClick(date)}
             >
-              <div
-                className={`text-xs sm:text-sm font-medium mb-1 sm:mb-2 ${
-                  today
-                    ? 'text-blue-600 font-bold'
-                    : dayOfWeek === 0
-                    ? 'text-red-600'
-                    : dayOfWeek === 6
-                    ? 'text-blue-600'
-                    : 'text-gray-700'
-                }`}
-              >
-                {date.getDate()}
+              <div className="flex flex-col gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+                <div
+                  className={`text-xs sm:text-sm font-medium ${
+                    today
+                      ? 'text-blue-600 font-bold'
+                      : holiday || dayOfWeek === 0
+                      ? 'text-red-600'
+                      : dayOfWeek === 6
+                      ? 'text-blue-600'
+                      : 'text-gray-700'
+                  }`}
+                >
+                  {date.getDate()}
+                </div>
+                {holiday && (
+                  <div className="text-[8px] sm:text-[10px] text-red-600 font-semibold truncate" title={holiday.name}>
+                    {holiday.name}
+                  </div>
+                )}
               </div>
 
               {/* Events and Todos for this day */}
