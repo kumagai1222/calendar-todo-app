@@ -173,7 +173,7 @@ export default function MonthlyCalendar({
       <div className="grid grid-cols-7 auto-rows-fr">
         {calendarDays.map((date, index) => {
           if (!date) {
-            return <div key={`empty-${index}`} className="border border-gray-200 bg-gray-50 min-h-[60px] sm:min-h-[120px]" />
+            return <div key={`empty-${index}`} className="border border-gray-200 bg-gray-50 min-h-[80px] sm:min-h-[140px]" />
           }
 
           const dayEvents = getEventsForDate(date)
@@ -186,7 +186,7 @@ export default function MonthlyCalendar({
           return (
             <div
               key={date.toISOString()}
-              className={`border border-gray-200 p-1 sm:p-2 min-h-[60px] sm:min-h-[120px] cursor-pointer hover:bg-gray-50 transition-colors ${
+              className={`border border-gray-200 p-1 sm:p-2 min-h-[80px] sm:min-h-[140px] cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden ${
                 today ? 'bg-blue-50' : holiday ? 'bg-red-50' : ''
               }`}
               onClick={() => onDateClick(date)}
@@ -213,9 +213,9 @@ export default function MonthlyCalendar({
               </div>
 
               {/* Events and Todos for this day */}
-              <div className="space-y-0.5 sm:space-y-1">
-                {/* Events */}
-                {dayEvents.slice(0, 2).map((event, eventIndex) => {
+              <div className="space-y-0.5">
+                {/* Events - Show up to 4 events */}
+                {dayEvents.slice(0, 4).map((event) => {
                   const color = getColorById(event.color_id)
                   return (
                     <div
@@ -224,52 +224,42 @@ export default function MonthlyCalendar({
                         e.stopPropagation()
                         onEventClick(event)
                       }}
-                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate cursor-pointer hover:opacity-80 ${
-                        eventIndex > 0 ? 'hidden sm:block' : ''
-                      }`}
+                      className="text-[9px] sm:text-[10px] px-1 py-0.5 sm:px-1.5 sm:py-1 rounded truncate cursor-pointer hover:opacity-90 transition-opacity font-medium"
                       style={{
-                        backgroundColor: color?.hex_code + '30' || '#e5e7eb',
-                        borderLeft: `2px solid ${color?.hex_code || '#9ca3af'}`,
+                        backgroundColor: color?.hex_code || '#94a3b8',
+                        color: '#ffffff',
                       }}
-                      title={event.title}
+                      title={`${new Date(event.start_date).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} ${event.title}`}
                     >
-                      <span className="hidden sm:inline">
-                        {new Date(event.start_date).toLocaleTimeString('ja-JP', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}{' '}
-                      </span>
                       {event.title}
                     </div>
                   )
                 })}
 
-                {/* Todos */}
-                {dayTodos.slice(0, 2).map((todo, todoIndex) => {
+                {/* Todos - Show up to 2 todos */}
+                {dayTodos.slice(0, 2).map((todo) => {
                   const categoryColor = getCategoryColor(todo.category_id)
                   return (
                     <div
                       key={`todo-${todo.id}`}
-                      className={`text-[10px] sm:text-xs p-0.5 sm:p-1 rounded truncate ${
-                        todoIndex > 0 ? 'hidden sm:block' : ''
-                      }`}
+                      className="text-[9px] sm:text-[10px] px-1 py-0.5 sm:px-1.5 sm:py-1 rounded truncate font-medium"
                       style={{
-                        backgroundColor: categoryColor?.hex_code ? categoryColor.hex_code + '20' : '#fef3c7',
-                        borderLeft: `2px solid ${categoryColor?.hex_code || '#f97316'}`,
+                        backgroundColor: categoryColor?.hex_code || '#fb923c',
+                        color: '#ffffff',
+                        opacity: todo.is_completed ? 0.6 : 1,
                       }}
                       title={`Todo: ${todo.title}`}
                     >
-                      <span className="font-semibold text-[10px]">✓</span> {todo.title}
-                      {!todo.is_completed && (
-                        <span className="ml-0.5 sm:ml-1 text-orange-600 text-[10px]">⚠</span>
-                      )}
+                      <span className="mr-0.5">✓</span>
+                      {todo.title}
                     </div>
                   )
                 })}
 
-                {totalItems > 2 && (
-                  <div className="text-[10px] sm:text-xs text-gray-500 pl-0.5 sm:pl-1">
-                    +{totalItems - 2}
+                {/* Show remaining count if there are more items */}
+                {totalItems > 6 && (
+                  <div className="text-[9px] sm:text-[10px] text-gray-500 font-medium pl-1">
+                    +{totalItems - 6} 件
                   </div>
                 )}
               </div>
