@@ -17,11 +17,15 @@ export function isHoliday(date: Date): boolean {
  * Get holiday information for a given date
  */
 export function getHoliday(date: Date): Holiday | null {
-  const holiday = HolidayJp.isHoliday(date)
-  if (!holiday) return null
+  if (!HolidayJp.isHoliday(date)) return null
 
+  // Use between() to get the holiday info for a single date
+  const holidays = HolidayJp.between(date, date)
+  if (holidays.length === 0) return null
+
+  const holiday = holidays[0]
   return {
-    date: holiday.date,
+    date: typeof holiday.date === 'string' ? holiday.date : holiday.date.toISOString().split('T')[0],
     name: holiday.name,
     name_en: holiday.name_en || ''
   }
