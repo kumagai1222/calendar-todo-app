@@ -28,35 +28,43 @@ export default function AdminUsersClient({ user }: AdminUsersClientProps) {
       setLoading(true)
       console.log('[Admin] Loading all users...')
 
-      // Get all unique user IDs from calendar_events and todos
-      const [eventsResult, todosResult] = await Promise.all([
+      // Get users from all data tables
+      const [eventsResult, todosResult, colorsResult, categoriesResult] = await Promise.all([
         supabase.from('calendar_events').select('user_id'),
         supabase.from('todos').select('user_id'),
+        supabase.from('colors').select('user_id'),
+        supabase.from('categories').select('user_id'),
       ])
-
-      console.log('[Admin] Events result:', eventsResult)
-      console.log('[Admin] Todos result:', todosResult)
 
       if (eventsResult.error) {
         console.error('[Admin] Error loading events:', eventsResult.error)
       }
-
       if (todosResult.error) {
         console.error('[Admin] Error loading todos:', todosResult.error)
       }
 
       const userIds = new Set<string>()
 
-      if (eventsResult.data) {
-        eventsResult.data.forEach((event) => {
-          if (event.user_id) userIds.add(event.user_id)
-        })
-      }
+      eventsResult.data?.forEach((e) => { if (e.user_id) userIds.add(e.user_id) })
+      todosResult.data?.forEach((t) => { if (t.user_id) userIds.add(t.user_id) })
+      colorsResult.data?.forEach((c) => { if (c.user_id) userIds.add(c.user_id) })
+      categoriesResult.data?.forEach((c) => { if (c.user_id) userIds.add(c.user_id) })
 
-      if (todosResult.data) {
-        todosResult.data.forEach((todo) => {
-          if (todo.user_id) userIds.add(todo.user_id)
-        })
+      // Try to fetch all users from admin API (uses Supabase service role)
+      let emailMap: Record<string, string> = {}
+      try {
+        const res = await fetch('/api/admin/users')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.users && Array.isArray(data.users)) {
+            data.users.forEach((u: { id: string; email?: string }) => {
+              if (u.id) userIds.add(u.id)
+              if (u.id && u.email) emailMap[u.id] = u.email
+            })
+          }
+        }
+      } catch {
+        console.log('[Admin] Admin API not available, using data tables only')
       }
 
       console.log('[Admin] Found user IDs:', Array.from(userIds))
@@ -68,7 +76,9 @@ export default function AdminUsersClient({ user }: AdminUsersClientProps) {
 
         return {
           id: userId,
-          email: userId === user.id ? user.email || 'No email' : `User-${userId.substring(0, 8)}`,
+          email: userId === user.id
+            ? user.email || 'No email'
+            : emailMap[userId] || `User-${userId.substring(0, 8)}`,
           hasData: hasEvents || hasTodos,
         }
       })
@@ -94,26 +104,26 @@ export default function AdminUsersClient({ user }: AdminUsersClientProps) {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
                 管理者 - ユーザー管理
               </h1>
               <span className="px-2 py-1 text-xs font-semibold text-white bg-purple-600 rounded">
                 管理者
               </span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
               >
                 ダッシュボードに戻る
               </button>
-              <span className="text-sm text-gray-600">{user.email}</span>
+              <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">{user.email}</span>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
               >
                 ログアウト
               </button>

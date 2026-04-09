@@ -173,9 +173,11 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   }
 
   const handleDateClick = (date: Date) => {
-    // Switch to day view and set the clicked date
+    // Open event modal for the clicked date
     setCurrentDate(date)
-    setViewMode('day')
+    setSelectedDate(date)
+    setSelectedEvent(null)
+    setIsEventModalOpen(true)
   }
 
   const handleAddEvent = () => {
