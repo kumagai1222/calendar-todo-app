@@ -88,6 +88,9 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   const getFilteredEvents = () => {
     let filtered = events
 
+    // is_visible が false の予定は両ビューで非表示
+    filtered = filtered.filter(e => e.is_visible)
+
     if (filteredColorIds.size > 0) {
       filtered = filtered.filter(e => e.color_id && filteredColorIds.has(e.color_id))
     }
