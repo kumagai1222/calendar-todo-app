@@ -5,6 +5,7 @@ import { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import CalendarView from './CalendarView'
+import WeeklyCalendar from './WeeklyCalendar'
 import TodoList from './TodoList'
 import NotificationSettings from './NotificationSettings'
 import { KLMSSettings } from './KLMSSettings'
@@ -21,7 +22,7 @@ interface DashboardClientProps {
 const ADMIN_EMAIL = 'hajimeazb@gmail.com'
 
 export default function DashboardClient({ user }: DashboardClientProps) {
-  const [view, setView] = useState<'calendar' | 'todo' | 'klms'>('calendar')
+  const [view, setView] = useState<'calendar' | 'weekly' | 'todo' | 'klms'>('calendar')
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
@@ -166,6 +167,16 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             カレンダー
           </button>
           <button
+            onClick={() => setView('weekly')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              view === 'weekly'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            時間割
+          </button>
+          <button
             onClick={() => setView('todo')}
             className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
               view === 'todo'
@@ -192,6 +203,8 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {view === 'calendar' ? (
           <CalendarView userId={user.id} resetToMonth={resetCalendarToMonth} />
+        ) : view === 'weekly' ? (
+          <WeeklyCalendar userId={user.id} />
         ) : view === 'todo' ? (
           <TodoList userId={user.id} />
         ) : (
