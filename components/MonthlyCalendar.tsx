@@ -1,34 +1,61 @@
 'use client'
 
+import { useRef } from 'react'
 import { Database } from '@/lib/types/database.types'
 import { getHoliday } from '@/lib/utils/holidays'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
-type Todo = Database['public']['Tables']['todos']['Row']
-type Category = Database['public']['Tables']['categories']['Row']
 
 interface MonthlyCalendarProps {
   currentDate: Date
   events: CalendarEvent[]
-  todos: Todo[]
   colors: Color[]
-  categories: Category[]
   onEventClick: (event: CalendarEvent) => void
   onDateClick: (date: Date) => void
+  onSwipeLeft?: () => void
+  onSwipeRight?: () => void
 }
 
 export default function MonthlyCalendar({
   currentDate,
   events,
-  todos,
   colors,
-  categories,
   onEventClick,
   onDateClick,
+  onSwipeLeft,
+  onSwipeRight,
 }: MonthlyCalendarProps) {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
+
+  // Swipe handling
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current
+
+    // Only trigger if horizontal swipe is dominant and distance > 50px
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      if (deltaX < 0 && onSwipeLeft) {
+        onSwipeLeft()
+      } else if (deltaX > 0 && onSwipeRight) {
+        onSwipeRight()
+      }
+    }
+
+    touchStartX.current = null
+    touchStartY.current = null
+  }
 
   // Get first day of month and number of days
   const firstDay = new Date(year, month, 1)
@@ -39,12 +66,10 @@ export default function MonthlyCalendar({
   // Create calendar grid
   const calendarDays: (Date | null)[] = []
 
-  // Add empty cells for days before month starts
   for (let i = 0; i < startingDayOfWeek; i++) {
     calendarDays.push(null)
   }
 
-  // Add days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     calendarDays.push(new Date(year, month, day))
   }
@@ -60,28 +85,9 @@ export default function MonthlyCalendar({
     })
   }
 
-  const getTodosForDate = (date: Date) => {
-    return todos.filter((todo) => {
-      if (!todo.deadline) return false
-      const deadlineDate = new Date(todo.deadline)
-      return (
-        deadlineDate.getDate() === date.getDate() &&
-        deadlineDate.getMonth() === date.getMonth() &&
-        deadlineDate.getFullYear() === date.getFullYear()
-      )
-    })
-  }
-
   const getColorById = (colorId: string | null) => {
     if (!colorId) return null
     return colors.find((c) => c.id === colorId)
-  }
-
-  const getCategoryColor = (categoryId: string | null) => {
-    if (!categoryId) return null
-    const category = categories.find((c) => c.id === categoryId)
-    if (!category || !category.color_id) return null
-    return getColorById(category.color_id)
   }
 
   const isToday = (date: Date) => {
@@ -93,16 +99,12 @@ export default function MonthlyCalendar({
     )
   }
 
-  // Get multi-day events (events that span multiple days)
   const getMultiDayEvents = () => {
     return events.filter((event) => {
       const start = new Date(event.start_date)
       const end = new Date(event.end_date)
-
-      // Check if event spans multiple days
       const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
       const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate())
-
       return endDay > startDay
     })
   }
@@ -110,7 +112,11 @@ export default function MonthlyCalendar({
   const multiDayEvents = getMultiDayEvents()
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div
+      className="bg-white rounded-lg shadow overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Multi-day events section */}
       {multiDayEvents.length > 0 && (
         <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4">
@@ -177,10 +183,9 @@ export default function MonthlyCalendar({
           }
 
           const dayEvents = getEventsForDate(date)
-          const dayTodos = getTodosForDate(date)
           const today = isToday(date)
           const dayOfWeek = date.getDay()
-          const totalItems = dayEvents.length + dayTodos.length
+          const maxVisible = 5
           const holiday = getHoliday(date)
 
           return (
@@ -212,10 +217,9 @@ export default function MonthlyCalendar({
                 )}
               </div>
 
-              {/* Events and Todos for this day */}
+              {/* Events for this day */}
               <div className="space-y-0.5 sm:space-y-1">
-                {/* Events - Show up to 5 events on mobile, 4 on desktop */}
-                {dayEvents.slice(0, 5).map((event) => {
+                {dayEvents.slice(0, maxVisible).map((event) => {
                   const color = getColorById(event.color_id)
                   return (
                     <div
@@ -236,30 +240,9 @@ export default function MonthlyCalendar({
                   )
                 })}
 
-                {/* Todos - Show up to 2 todos */}
-                {dayTodos.slice(0, 2).map((todo) => {
-                  const categoryColor = getCategoryColor(todo.category_id)
-                  return (
-                    <div
-                      key={`todo-${todo.id}`}
-                      className="text-[10px] sm:text-[11px] px-1.5 py-1 rounded-sm truncate font-medium shadow-sm"
-                      style={{
-                        backgroundColor: categoryColor?.hex_code || '#fb923c',
-                        color: '#ffffff',
-                        opacity: todo.is_completed ? 0.6 : 1,
-                      }}
-                      title={`Todo: ${todo.title}`}
-                    >
-                      <span className="mr-0.5">✓</span>
-                      {todo.title}
-                    </div>
-                  )
-                })}
-
-                {/* Show remaining count if there are more items */}
-                {totalItems > 7 && (
+                {dayEvents.length > maxVisible && (
                   <div className="text-[10px] sm:text-[11px] text-gray-600 font-semibold pl-1">
-                    +{totalItems - 7}
+                    +{dayEvents.length - maxVisible}
                   </div>
                 )}
               </div>

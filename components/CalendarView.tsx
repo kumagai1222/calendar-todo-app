@@ -6,13 +6,10 @@ import MonthlyCalendar from './MonthlyCalendar'
 import DailyCalendar from './DailyCalendar'
 import EventModal from './EventModal'
 import ColorManager from './ColorManager'
-import ExportImportModal from './ExportImportModal'
 import { Database } from '@/lib/types/database.types'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
-type Todo = Database['public']['Tables']['todos']['Row']
-type Category = Database['public']['Tables']['categories']['Row']
 
 interface CalendarViewProps {
   userId: string
@@ -30,30 +27,24 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   }, [resetToMonth])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [todos, setTodos] = useState<Todo[]>([])
   const [colors, setColors] = useState<Color[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [filteredColorIds, setFilteredColorIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [isColorManagerOpen, setIsColorManagerOpen] = useState(false)
-  const [isExportImportModalOpen, setIsExportImportModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     loadEvents()
-    loadTodos()
     loadColors()
-    loadCategories()
   }, [currentDate, viewMode, userId])
 
   const loadEvents = async () => {
     const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
 
-    console.log('[Calendar] Loading events for user:', userId)
     const { data, error } = await supabase
       .from('calendar_events')
       .select('*')
@@ -65,31 +56,11 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
     if (error) {
       console.error('[Calendar] Error loading events:', error)
     } else {
-      console.log('[Calendar] Loaded events:', data?.length, 'events')
       setEvents(data)
     }
   }
 
-  const loadTodos = async () => {
-    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-
-    const { data, error } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', userId)
-      .not('deadline', 'is', null)
-      .gte('deadline', startDate.toISOString())
-      .lte('deadline', endDate.toISOString())
-      .order('deadline', { ascending: true })
-
-    if (!error && data) {
-      setTodos(data)
-    }
-  }
-
   const loadColors = async () => {
-    console.log('[Calendar] Loading colors for user:', userId)
     const { data, error } = await supabase
       .from('colors')
       .select('*')
@@ -99,20 +70,7 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
     if (error) {
       console.error('[Calendar] Error loading colors:', error)
     } else {
-      console.log('[Calendar] Loaded colors:', data?.length, 'colors')
       setColors(data)
-    }
-  }
-
-  const loadCategories = async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-
-    if (!error && data) {
-      setCategories(data)
     }
   }
 
@@ -129,38 +87,18 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   const getFilteredEvents = () => {
     let filtered = events
 
-    // For month view, filter by is_visible
-    // For day view, show all events regardless of is_visible
-    if (viewMode === 'month') {
-      filtered = filtered.filter(e => e.is_visible)
-    }
+    // is_visible が false の予定は両ビューで非表示
+    filtered = filtered.filter(e => e.is_visible)
 
-    // Apply color filter if any colors are selected
     if (filteredColorIds.size > 0) {
       filtered = filtered.filter(e => e.color_id && filteredColorIds.has(e.color_id))
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(e =>
         e.title.toLowerCase().includes(query) ||
         (e.description && e.description.toLowerCase().includes(query))
-      )
-    }
-
-    return filtered
-  }
-
-  const getFilteredTodos = () => {
-    let filtered = todos
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        (t.description && t.description.toLowerCase().includes(query))
       )
     }
 
@@ -173,7 +111,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   }
 
   const handleDateClick = (date: Date) => {
-    // Open event modal for the clicked date
     setCurrentDate(date)
     setSelectedDate(date)
     setSelectedEvent(null)
@@ -181,7 +118,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   }
 
   const handleAddEvent = () => {
-    // Open event modal for adding new event
     setSelectedDate(currentDate)
     setSelectedEvent(null)
     setIsEventModalOpen(true)
@@ -189,7 +125,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
 
   const handleEventSave = async () => {
     await loadEvents()
-    await loadTodos()
     setIsEventModalOpen(false)
     setSelectedEvent(null)
     setSelectedDate(null)
@@ -198,84 +133,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   const handleColorsUpdate = async () => {
     await loadColors()
     await loadEvents()
-    await loadTodos()
-  }
-
-  const handleImport = async (data: {
-    events?: Partial<CalendarEvent>[]
-    todos?: Partial<Todo>[]
-    colors?: Color[]
-    categories?: Category[]
-  }) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    try {
-      // Import colors
-      if (data.colors && data.colors.length > 0) {
-        const colorsToInsert = data.colors.map((color) => ({
-          name: color.name,
-          hex_code: color.hex_code,
-          user_id: user.id,
-        }))
-
-        await supabase.from('colors').insert(colorsToInsert)
-      }
-
-      // Import categories
-      if (data.categories && data.categories.length > 0) {
-        const categoriesToInsert = data.categories.map((category) => ({
-          name: category.name,
-          color_id: category.color_id,
-          user_id: user.id,
-        }))
-
-        await supabase.from('categories').insert(categoriesToInsert)
-      }
-
-      // Import events
-      if (data.events && data.events.length > 0) {
-        const eventsToInsert = data.events.map((event) => ({
-          title: event.title!,
-          description: event.description,
-          start_date: event.start_date!,
-          end_date: event.end_date!,
-          color_id: event.color_id,
-          is_visible: event.is_visible ?? true,
-          is_recurring: (event as any).is_recurring ?? false,
-          recurrence_type: (event as any).recurrence_type,
-          recurrence_interval: (event as any).recurrence_interval,
-          recurrence_end_date: (event as any).recurrence_end_date,
-          user_id: user.id,
-        }))
-
-        await supabase.from('calendar_events').insert(eventsToInsert)
-      }
-
-      // Import todos
-      if (data.todos && data.todos.length > 0) {
-        const todosToInsert = data.todos.map((todo) => ({
-          title: todo.title!,
-          description: todo.description,
-          priority: todo.priority ?? 'medium',
-          deadline: todo.deadline,
-          is_completed: todo.is_completed ?? false,
-          category_id: todo.category_id,
-          user_id: user.id,
-        }))
-
-        await supabase.from('todos').insert(todosToInsert)
-      }
-
-      // Reload all data
-      await loadEvents()
-      await loadTodos()
-      await loadColors()
-      await loadCategories()
-    } catch (error) {
-      console.error('Import error:', error)
-      throw error
-    }
   }
 
   const goToPreviousPeriod = () => {
@@ -299,7 +156,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   }
 
   const filteredEvents = getFilteredEvents()
-  const filteredTodos = getFilteredTodos()
 
   return (
     <div className="space-y-6">
@@ -308,7 +164,7 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
         <div className="relative">
           <input
             type="text"
-            placeholder="予定やTodoを検索..."
+            placeholder="予定を検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -393,17 +249,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
             </div>
 
             <button
-              onClick={() => setIsExportImportModalOpen(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-              title="エクスポート/インポート"
-            >
-              <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className="hidden sm:inline">データ</span>
-            </button>
-
-            <button
               onClick={() => setIsColorManagerOpen(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
             >
@@ -423,7 +268,7 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
         {colors.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-700 mb-2">表示フィルター:</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               {colors.map((color) => (
                 <button
                   key={color.id}
@@ -454,19 +299,17 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
         <MonthlyCalendar
           currentDate={currentDate}
           events={filteredEvents}
-          todos={filteredTodos}
           colors={colors}
-          categories={categories}
           onEventClick={handleEventClick}
           onDateClick={handleDateClick}
+          onSwipeLeft={goToNextPeriod}
+          onSwipeRight={goToPreviousPeriod}
         />
       ) : (
         <DailyCalendar
           currentDate={currentDate}
           events={filteredEvents}
-          todos={filteredTodos}
           colors={colors}
-          categories={categories}
           onEventClick={handleEventClick}
         />
       )}
@@ -495,17 +338,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
         />
       )}
 
-      {/* Export/Import Modal */}
-      {isExportImportModalOpen && (
-        <ExportImportModal
-          events={events}
-          todos={todos}
-          colors={colors}
-          categories={categories}
-          onClose={() => setIsExportImportModalOpen(false)}
-          onImport={handleImport}
-        />
-      )}
     </div>
   )
 }
