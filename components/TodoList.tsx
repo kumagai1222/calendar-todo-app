@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TodoModal from './TodoModal'
 import CategoryManager from './CategoryManager'
@@ -313,7 +313,7 @@ export default function TodoList({ userId }: TodoListProps) {
   const filteredTodos = getFilteredTodos()
   const completedCount = todos.filter((t) => t.is_completed).length
   const totalCount = todos.length
-  const todoGroups = groupTodosByDeadline(filteredTodos)
+  const todoGroups = useMemo(() => groupTodosByDeadline(filteredTodos), [filteredTodos])
 
   return (
     <div className="space-y-6">

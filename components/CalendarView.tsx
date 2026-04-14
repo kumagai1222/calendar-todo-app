@@ -6,18 +6,14 @@ import MonthlyCalendar from './MonthlyCalendar'
 import DailyCalendar from './DailyCalendar'
 import EventModal from './EventModal'
 import ColorManager from './ColorManager'
-import ExportImportModal from './ExportImportModal'
 import { Database } from '@/lib/types/database.types'
 
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type Color = Database['public']['Tables']['colors']['Row']
-type Todo = Database['public']['Tables']['todos']['Row']
-type Category = Database['public']['Tables']['categories']['Row']
 
 interface CalendarViewProps {
   userId: string
   resetToMonth?: boolean
-  onNavigateMonth?: (direction: 'prev' | 'next') => void
 }
 
 export default function CalendarView({ userId, resetToMonth }: CalendarViewProps) {
@@ -36,7 +32,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   const [searchQuery, setSearchQuery] = useState('')
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [isColorManagerOpen, setIsColorManagerOpen] = useState(false)
-  const [isExportImportModalOpen, setIsExportImportModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const supabase = createClient()
@@ -58,7 +53,9 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
       .lte('start_date', endDate.toISOString())
       .order('start_date', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('[Calendar] Error loading events:', error)
+    } else {
       setEvents(data)
     }
   }
@@ -70,7 +67,9 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('[Calendar] Error loading colors:', error)
+    } else {
       setColors(data)
     }
   }
@@ -134,50 +133,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
   const handleColorsUpdate = async () => {
     await loadColors()
     await loadEvents()
-  }
-
-  const handleImport = async (data: {
-    events?: Partial<CalendarEvent>[]
-    todos?: Partial<Todo>[]
-    colors?: Color[]
-    categories?: Category[]
-  }) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    try {
-      if (data.colors && data.colors.length > 0) {
-        const colorsToInsert = data.colors.map((color) => ({
-          name: color.name,
-          hex_code: color.hex_code,
-          user_id: user.id,
-        }))
-        await supabase.from('colors').insert(colorsToInsert)
-      }
-
-      if (data.events && data.events.length > 0) {
-        const eventsToInsert = data.events.map((event) => ({
-          title: event.title!,
-          description: event.description,
-          start_date: event.start_date!,
-          end_date: event.end_date!,
-          color_id: event.color_id,
-          is_visible: event.is_visible ?? true,
-          is_recurring: (event as any).is_recurring ?? false,
-          recurrence_type: (event as any).recurrence_type,
-          recurrence_interval: (event as any).recurrence_interval,
-          recurrence_end_date: (event as any).recurrence_end_date,
-          user_id: user.id,
-        }))
-        await supabase.from('calendar_events').insert(eventsToInsert)
-      }
-
-      await loadEvents()
-      await loadColors()
-    } catch (error) {
-      console.error('Import error:', error)
-      throw error
-    }
   }
 
   const goToPreviousPeriod = () => {
@@ -294,17 +249,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
             </div>
 
             <button
-              onClick={() => setIsExportImportModalOpen(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-              title="エクスポート/インポート"
-            >
-              <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className="hidden sm:inline">データ</span>
-            </button>
-
-            <button
               onClick={() => setIsColorManagerOpen(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
             >
@@ -394,17 +338,6 @@ export default function CalendarView({ userId, resetToMonth }: CalendarViewProps
         />
       )}
 
-      {/* Export/Import Modal */}
-      {isExportImportModalOpen && (
-        <ExportImportModal
-          events={events}
-          todos={[]}
-          colors={colors}
-          categories={[]}
-          onClose={() => setIsExportImportModalOpen(false)}
-          onImport={handleImport}
-        />
-      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/lib/types/database.types'
 import { getHoliday } from '@/lib/utils/holidays'
@@ -18,6 +18,7 @@ export default function WeeklyCalendar({ userId }: WeeklyCalendarProps) {
   const [colors, setColors] = useState<Color[]>([])
   const supabase = createClient()
 
+  // 週間表示はコンパクトに50px/h（日表示DailyCalendarは60px/hでゆったり表示）
   const HOUR_HEIGHT = 50
   const START_HOUR = 6
   const END_HOUR = 22
@@ -33,12 +34,12 @@ export default function WeeklyCalendar({ userId }: WeeklyCalendarProps) {
     return d
   }
 
-  const weekStart = getWeekStart(currentDate)
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
     d.setDate(d.getDate() + i)
     return d
-  })
+  }), [weekStart])
 
   useEffect(() => {
     loadEvents()
@@ -58,7 +59,9 @@ export default function WeeklyCalendar({ userId }: WeeklyCalendarProps) {
       .lte('start_date', end.toISOString())
       .order('start_date', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('[WeeklyCalendar] Error loading events:', error)
+    } else {
       setEvents(data)
     }
   }
@@ -70,7 +73,9 @@ export default function WeeklyCalendar({ userId }: WeeklyCalendarProps) {
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
-    if (!error && data) {
+    if (error) {
+      console.error('[WeeklyCalendar] Error loading colors:', error)
+    } else {
       setColors(data)
     }
   }
